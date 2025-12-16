@@ -196,6 +196,16 @@ async def refresh_cache(force: bool = False) -> None:
 
     cache.last_refresh_ts = time.time()
 
+    # Prune Trakt per-item rules that refer to removed content.
+    if trakt_service:
+        valid_keys: set[str] = set()
+        for v in cache.catalog.values():
+            if v.get("providerKey"):
+                valid_keys.add(v["providerKey"])
+            if v.get("groupKey"):
+                valid_keys.add(v["groupKey"])
+        trakt_service.prune_rules(valid_keys)
+
 
 async def sync_trakt() -> Dict[str, Any]:
     """Push completed Jellyfin events to enabled Trakt accounts."""

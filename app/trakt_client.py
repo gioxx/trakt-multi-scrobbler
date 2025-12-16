@@ -166,11 +166,24 @@ class TraktService:
         if not provider_key and not group_key:
             return False
         rules = self.account_items.get(username) or {}
-        if provider_key in rules:
+        if provider_key and provider_key in rules:
             return bool(rules[provider_key])
         if group_key and group_key in rules:
             return bool(rules[group_key])
-        return True  # default allow
+        return False  # default: new content not selected
+
+    def prune_rules(self, valid_keys: set[str]) -> None:
+        if not valid_keys:
+            return
+        changed = False
+        for user, rules in list(self.account_items.items()):
+            to_delete = [k for k in rules.keys() if k not in valid_keys]
+            if to_delete:
+                for k in to_delete:
+                    rules.pop(k, None)
+                changed = True
+        if changed:
+            self._save_state()
 
     async def _refresh_token(self, acc: TraktAccount) -> bool:
         if not acc.refresh_token or not self.client_id or not self.client_secret:
