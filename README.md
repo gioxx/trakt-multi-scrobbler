@@ -5,9 +5,11 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
 ## Cosa fa
 - Scarica la cronologia “Played” di Jellyfin (film ed episodi) usando `JELLYFIN_URL` e `JELLYFIN_APIKEY`.
 - Costruisce eventi completati con data/ora e ID TMDB/IMDB/TVDB.
+- Puoi scegliere quali utenti Jellyfin sono considerati “fonte” per gli scrobble (checkbox).
 - Per ogni account Trakt abilitato, invia gli eventi a `POST https://api.trakt.tv/sync/history` preservando il timestamp originale.
 - Tiene `last_synced` per ogni utente Trakt così da non duplicare scrobble.
-- L’interfaccia web mostra gli account Trakt (checkbox) e un pulsante “Sync to Trakt”.
+- Filtra per titolo/serie a quali account Trakt mandare gli scrobble (regole per film/serie).
+- L’interfaccia web mostra utenti Jellyfin, account Trakt (checkbox), orfani (contenuti senza destinazione), filtri e un pulsante “Sync to Trakt”.
 
 ## Requisiti
 - Jellyfin con API key.
@@ -68,6 +70,7 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    export TRAKT_CLIENT_ID="CLIENT_ID_TRAKT"
    export TRAKT_CLIENT_SECRET="CLIENT_SECRET_TRAKT"
    export TRAKT_STATE_PATH="trakt_accounts.json"   # opzionale
+   export JELLYFIN_STATE_PATH="jellyfin_state.json" # opzionale, selezione utenti Jellyfin
    export WATCH_THRESHOLD="0.95"                   # opzionale, % vista per dire “completato”
    export REFRESH_MINUTES="30"                     # opzionale, polling Jellyfin
    ```
@@ -91,7 +94,9 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
 Sì. La UI integra il device flow Trakt: “Add Trakt account” mostra il codice e il link di verifica, poi salva i token nel JSON una volta approvato. In alternativa puoi usare i comandi `curl` indicati sopra.
 
 ## Come usarlo
-- **Trakt accounts**: vedi l’elenco degli utenti Trakt trovati nel JSON; attiva/disattiva la checkbox per decidere chi riceve gli scrobble.
+- **Jellyfin users**: seleziona quali utenti Jellyfin contano per gli scrobble verso Trakt (di default sono tutti). La selezione è salvata in `JELLYFIN_STATE_PATH`.
+- **Trakt accounts**: vedi l’elenco degli utenti Trakt trovati nel JSON; attiva/disattiva la checkbox per decidere chi riceve gli scrobble; aggiungi/rimuovi via UI.
+- **Content filters**: per ogni film/serie scegli a quali account Trakt mandare gli scrobble (checkbox per account). I contenuti senza nessun account attivo finiscono nella sezione “Unassigned”.
 - **Sync to Trakt**: invia subito tutti gli eventi completati rilevati in Jellyfin (altrimenti la sync gira automaticamente ogni `REFRESH_MINUTES`).
 - **Jellyfin history**: scegli un utente Jellyfin per vedere cosa ha guardato; i poster e le date vengono direttamente da Jellyfin.
 
