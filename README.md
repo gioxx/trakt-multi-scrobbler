@@ -20,7 +20,7 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
 ## Configurazione passo-passo (principiante)
 1) **Clona il repo**  
    ```bash
-   git clone https://github.com/<tuo-user>/trakt-multi-scrobbler.git
+   git clone https://github.com/gioxx/trakt-multi-scrobbler.git
    cd trakt-multi-scrobbler
    ```
 
@@ -43,22 +43,25 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    - Puoi inserire più account: ognuno comparirà con una propria checkbox.
 
 3) **Ottieni i token Trakt (una volta per ogni utente)**  
-   - Vai su https://trakt.tv/oauth/applications e prendi `client_id` e `client_secret` della tua app.
-   - Avvia il device flow per ottenere il `user_code`:
-     ```bash
-     curl -X POST https://api.trakt.tv/oauth/device/code \
-       -H "Content-Type: application/json" \
-       -d '{"client_id":"<client_id>"}'
-     ```
-     Annota `user_code`, `device_code` e `verification_url`.
-   - Apri `verification_url`, inserisci `user_code` e autorizza.
-   - Scambia il `device_code` per i token:
-     ```bash
-     curl -X POST https://api.trakt.tv/oauth/device/token \
-       -H "Content-Type: application/json" \
-       -d '{"client_id":"<client_id>","client_secret":"<client_secret>","code":"<device_code>"}'
-     ```
-     L’output contiene `access_token`, `refresh_token` ed `expires_in` (in secondi). Calcola `expires_at` = `now + expires_in` (in secondi, non millisecondi) e incollalo nel JSON.
+   Hai due alternative:
+   - **Via UI guidata (consigliato se hai già impostato le variabili d’ambiente)**: dal pannello web clicca “Add Trakt account”, copia il codice mostrato, apri il link e autorizza. L’app salverà automaticamente `access_token`/`refresh_token` nel file `trakt_accounts.json`.
+   - **Via curl manuale**:
+     - Vai su https://trakt.tv/oauth/applications e prendi `client_id` e `client_secret` della tua app.
+     - Avvia il device flow per ottenere il `user_code`:
+       ```bash
+       curl -X POST https://api.trakt.tv/oauth/device/code \
+         -H "Content-Type: application/json" \
+         -d '{"client_id":"<client_id>"}'
+       ```
+       Annota `user_code`, `device_code` e `verification_url`.
+     - Apri `verification_url`, inserisci `user_code` e autorizza.
+     - Scambia il `device_code` per i token:
+       ```bash
+       curl -X POST https://api.trakt.tv/oauth/device/token \
+         -H "Content-Type: application/json" \
+         -d '{"client_id":"<client_id>","client_secret":"<client_secret>","code":"<device_code>"}'
+       ```
+       L’output contiene `access_token`, `refresh_token` ed `expires_in` (in secondi). Calcola `expires_at` = `now + expires_in` (in secondi, non millisecondi) e incollalo nel JSON.
 
 4) **Imposta le variabili d’ambiente** (esempio):
    ```bash
@@ -70,6 +73,7 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    export WATCH_THRESHOLD="0.95"                   # opzionale, % vista per dire “completato”
    export REFRESH_MINUTES="30"                     # opzionale, polling Jellyfin
    ```
+   > Nota: `TRAKT_CLIENT_ID` e `TRAKT_CLIENT_SECRET` sono quelli della tua app Trakt e valgono per tutti gli utenti Trakt. Ogni utente ha poi i **propri** `access_token`/`refresh_token`/`expires_at` nel file `trakt_accounts.json`.
 
 5) **Avvia in locale (Python)**  
    ```bash
@@ -83,6 +87,9 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    docker compose up --build
    ```
    Assicurati di montare `trakt_accounts.json` nel container (vedi `docker-compose.yml` già pronto).
+
+### Posso ottenere i token Trakt via pagina web?
+Al momento no: il progetto non integra il device flow Trakt via UI. Per ora si usa il flusso manuale descritto sopra (pochi curl). Se vuoi automatizzarlo, si può aggiungere in futuro una mini-pagina che guida al device flow e salva i token nel JSON, ma non è implementata in questa versione.
 
 ## Come usarlo
 - **Trakt accounts**: vedi l’elenco degli utenti Trakt trovati nel JSON; attiva/disattiva la checkbox per decidere chi riceve gli scrobble.

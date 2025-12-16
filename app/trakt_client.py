@@ -237,3 +237,90 @@ class TraktService:
             else:
                 results[username] = {"ok": False, "payload": payload, "response": body}
         return {"ok": True, "results": results}
+
+    async def start_device_flow(self) -> Tuple[bool, Dict[str, object]]:
+        """Kick off Trakt device flow."""
+        if not self.client_id:
+            return False, {"error": "missing_client_id"}
+        payload = {"client_id": self.client_id}
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post("https://api.trakt.tv/oauth/device/code", json=payload)
+                r.raise_for_status()
+                data = r.json()
+                return True, data
+        except Exception:
+            logger.warning("Trakt: failed to start device flow", exc_info=True)
+            return False, {"error": "device_flow_start_failed"}
+
+    async def poll_device_flow(self, device_code: str) -> Tuple[str, Dict[str, object]]:
+        """Poll Trakt device token endpoint.
+
+        Returns status: "pending", "approved", "rejected", "error"
+        """
+        if not (self.client_id and self.client_secret and device_code):
+            return "error", {"error": "missing_params"}
+        payload = {
+            "code": device_code,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post("https://api.trakt.tv/oauth/device/token", json=payload)
+                if r.status_code in (400, 404):
+                    data = r.json()
+                    if data.get("error") in ("authorization_pending", "slow_down"):
+                        return "pending", data
+                    if data.get("error") == "expired_token":
+                        return "rejected", data
+                r.raise_for_status()
+                data = r.json()
+        except Exception:
+            logger.warning("Trakt: device flow poll failed", exc_info=True)
+            return "error", {"error": "poll_failed"}
+
+        added, info = await self._add_account_from_tokens(data)
+        if added:
+            return "approved", info
+        return "error", {"error": "add_account_failed"}
+
+    async def _profile_username(self, access_token: str) -> Optional[str]:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "trakt-api-version": "2",
+            "trakt-api-key": self.client_id,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+                r = await client.get("https://api.trakt.tv/users/me")
+                r.raise_for_status()
+                data = r.json()
+                return str(data.get("username") or data.get("ids", {}).get("slug") or "").strip()
+        except Exception:
+            logger.warning("Trakt: failed to fetch profile username", exc_info=True)
+            return None
+
+    async def _add_account_from_tokens(self, data: Dict[str, object]) -> Tuple[bool, Dict[str, object]]:
+        access_token = str(data.get("access_token") or "").strip()
+        refresh_token = str(data.get("refresh_token") or "").strip()
+        expires_in = float(data.get("expires_in") or 0.0)
+        if not access_token or not refresh_token or not expires_in:
+            return False, {"error": "missing_tokens"}
+
+        username = await self._profile_username(access_token)
+        if not username:
+            return False, {"error": "missing_username"}
+
+        expires_at = _now() + expires_in
+        acc = TraktAccount(
+            username=username,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+            enabled=True,
+        )
+        self.accounts[username] = acc
+        self._save_state()
+        logger.info("Trakt: added/updated account %s via device flow", username)
+        return True, {"username": username, "expires_at": expires_at}

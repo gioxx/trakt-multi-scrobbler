@@ -254,6 +254,25 @@ async def api_trakt_sync():
     return JSONResponse(result)
 
 
+@app.post("/api/trakt/device/start")
+async def api_trakt_device_start():
+    if not trakt_service:
+        return JSONResponse({"ok": False, "error": "trakt_not_configured"}, status_code=400)
+    ok, data = await trakt_service.start_device_flow()
+    return JSONResponse({"ok": ok, **data}, status_code=200 if ok else 400)
+
+
+@app.post("/api/trakt/device/poll")
+async def api_trakt_device_poll(payload: Dict[str, Any] = Body(...)):
+    if not trakt_service:
+        return JSONResponse({"status": "error", "error": "trakt_not_configured"}, status_code=400)
+    device_code = str(payload.get("device_code") or "").strip()
+    if not device_code:
+        return JSONResponse({"status": "error", "error": "missing_device_code"}, status_code=400)
+    status, data = await trakt_service.poll_device_flow(device_code)
+    return JSONResponse({"status": status, **data})
+
+
 @app.get("/api/users")
 async def api_users():
     """Return all known Jellyfin users."""
