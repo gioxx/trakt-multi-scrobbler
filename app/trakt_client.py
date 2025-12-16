@@ -283,13 +283,21 @@ class TraktService:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 r = await client.post("https://api.trakt.tv/oauth/device/token", json=payload)
                 if r.status_code in (400, 404):
-                    data = r.json()
+                    try:
+                        data = r.json()
+                    except Exception:
+                        logger.warning("Trakt: device poll returned non-JSON (status %s)", r.status_code)
+                        return "error", {"error": "poll_not_json"}
                     if data.get("error") in ("authorization_pending", "slow_down"):
                         return "pending", data
                     if data.get("error") == "expired_token":
                         return "rejected", data
                 r.raise_for_status()
-                data = r.json()
+                try:
+                    data = r.json()
+                except Exception:
+                    logger.warning("Trakt: device poll returned non-JSON 200")
+                    return "error", {"error": "poll_not_json"}
         except Exception:
             logger.warning("Trakt: device flow poll failed", exc_info=True)
             return "error", {"error": "poll_failed"}
