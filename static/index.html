@@ -276,10 +276,9 @@
             list.innerHTML = filtered.map(it => {
                 const accountsHtml = (it.accounts || []).map(acc => {
                     const checked = acc.enabled ? 'checked' : '';
-                    const disabled = acc.accountEnabled ? '' : 'disabled';
                     return `<label style="display:flex; align-items:center; gap:6px;">
-                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" ${checked} ${disabled}/>
-                      <span class="muted">${escapeHtml(acc.username)}</span>
+                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" ${checked}/>
+                      <span class="muted">${escapeHtml(acc.username)}${acc.accountEnabled ? '' : ' (off)'}</span>
                     </label>`;
                 }).join('');
                 const poster = it.thumb ? `<img src="${it.thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`;
