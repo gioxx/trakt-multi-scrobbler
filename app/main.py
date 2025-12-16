@@ -315,8 +315,9 @@ async def api_trakt_items():
         entry["accounts"] = [
             {
                 "username": u,
-                # Only checked if account is enabled AND item allowed
-                "enabled": (acc.enabled and trakt_service.item_allowed(u, pk, gk)) if trakt_service else False,
+                # ruleEnabled = user choice; accountEnabled = current account toggle
+                "ruleEnabled": trakt_service.item_allowed(u, pk, gk) if trakt_service else False,
+                "enabled": acc.enabled,
                 "accountEnabled": acc.enabled,
             }
             for u, acc in account_pairs
