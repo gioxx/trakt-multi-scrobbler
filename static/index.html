@@ -251,7 +251,11 @@
             const bulkSel = document.getElementById('bulkAccount');
             const prev = bulkSel.value;
             bulkSel.innerHTML = traktAccounts.map(a => `<option value="${escapeHtml(a.username)}">${escapeHtml(a.username)}</option>`).join('');
-            if (prev && traktAccounts.some(a => a.username === prev)) bulkSel.value = prev;
+            if (prev && traktAccounts.some(a => a.username === prev)) {
+                bulkSel.value = prev;
+            } else if (traktAccounts.length) {
+                bulkSel.value = traktAccounts[0].username;
+            }
         }
 
         function renderContentList() {
@@ -316,7 +320,10 @@
 
         async function bulkApply(enable) {
             const account = document.getElementById('bulkAccount').value;
-            if (!account) return;
+            if (!account) {
+                alert(t('bulk.noAccount'));
+                return;
+            }
             const q = (document.getElementById('search').value || '').toLowerCase().trim();
             const targets = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
                 .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')))
@@ -331,18 +338,16 @@
                     return first === alphaFilter;
                 });
             if (!targets.length) return;
-            for (const it of targets) {
-                await fetch('/api/trakt/items/set', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: account,
-                        providerKey: it.providerKey || "",
-                        groupKey: it.groupKey || "",
-                        enabled: enable
-                    })
-                });
-            }
+            await Promise.all(targets.map(it => fetch('/api/trakt/items/set', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: account,
+                    providerKey: it.providerKey || "",
+                    groupKey: it.groupKey || "",
+                    enabled: enable
+                })
+            })));
             await loadContentItems();
         }
 

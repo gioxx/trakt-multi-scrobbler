@@ -13,6 +13,7 @@
   "button.delete": "Rimuovi",
   "bulk.select": "Seleziona tutti",
   "bulk.deselect": "Deseleziona tutti",
+  "bulk.noAccount": "Seleziona prima un account Trakt.",
   "filter.all": "Tutti",
   "filter.movies": "Film",
   "filter.shows": "Serie",
