@@ -166,6 +166,7 @@ async def refresh_cache(force: bool = False) -> None:
                     "type": "movie" if typ == "movie" else "show",
                     "title": it.get("Name") if typ == "movie" else (it.get("SeriesName") or ""),
                     "year": str(it.get("ProductionYear") or ""),
+                    "thumb": thumb_url or series_thumb_url,
                 })
 
             event = {

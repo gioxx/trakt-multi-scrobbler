@@ -55,7 +55,7 @@
             <div class="row">
                 <input id="search" placeholder="Filter content…" style="flex:1 1 320px;" />
             </div>
-            <div id="grid" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <div id="grid" class="grid"></div>
         </section>
     </main>
 
@@ -208,12 +208,13 @@
                       <span class="muted">${escapeHtml(acc.username)}</span>
                     </label>`;
                 }).join('');
-                return `<div class="card" style="padding:10px; flex-direction:column; gap:6px;">
-                  <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-                    <div>
-                      <div class="title">${escapeHtml(it.title || '')}</div>
-                      <div class="muted">${escapeHtml(it.type || '')}</div>
-                    </div>
+                const poster = it.thumb ? `<img src="${it.thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`;
+                const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
+                return `<div class="card">
+                  <div class="poster">${poster}</div>
+                  <div class="meta">
+                    <div class="title">${escapeHtml(it.title || '')}</div>
+                    <div class="sub">${escapeHtml(subtitle)}</div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">${accountsHtml}</div>
                   </div>
                 </div>`;
