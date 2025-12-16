@@ -304,7 +304,7 @@ async def api_trakt_items():
     """List Jellyfin titles (movie/show) with per-account scrobble flag."""
     await refresh_cache(force=False)
     items = sorted(cache.catalog.values(), key=lambda x: (x.get("type", ""), x.get("title", "")))
-    accounts = list(trakt_service.accounts.items()) if trakt_service else []
+    account_pairs = list(trakt_service.accounts.items()) if trakt_service else []
     resp: List[Dict[str, Any]] = []
     for it in items:
         pk = it.get("providerKey") or ""
@@ -319,10 +319,10 @@ async def api_trakt_items():
                 "enabled": (acc.enabled and trakt_service.item_allowed(u, pk, gk)) if trakt_service else False,
                 "accountEnabled": acc.enabled,
             }
-            for u, acc in accounts
+            for u, acc in account_pairs
         ]
         resp.append(entry)
-    return JSONResponse({"items": resp, "accounts": accounts})
+    return JSONResponse({"items": resp, "accounts": [u for u, _ in account_pairs]})
 
 
 @app.post("/api/trakt/items/set")
