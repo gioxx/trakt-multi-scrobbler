@@ -30,6 +30,7 @@
   "modal.openUrl": "Apri il link di verifica",
   "modal.close": "Chiudi",
   "modal.cancel": "Annulla",
+  "modal.pollNow": "Controlla adesso",
   "modal.waiting": "In attesa di approvazione… (ritento tra {seconds}s)",
   "modal.approved": "Approvato per l'utente {user}. Aggiungo alla lista…",
   "modal.expired": "Sessione scaduta. Ripeti la procedura.",

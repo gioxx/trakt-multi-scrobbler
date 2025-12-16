@@ -73,7 +73,8 @@
                     <a id="deviceUrl" href="#" target="_blank" rel="noopener" style="color:#5b7cff;">Open verification URL</a>
                 </div>
                 <div id="deviceStatus" class="muted"></div>
-                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
+                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px; flex-wrap:wrap;">
+                    <button id="btnPollNow">Check now</button>
                     <button id="btnCancelDevice">Cancel</button>
                 </div>
             </div>
@@ -90,6 +91,7 @@
         let currentDeviceCode = '';
         let deviceExpiresAt = 0;
         let devicePollIntervalSec = 5;
+        let lastPollError = false;
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -130,6 +132,7 @@
             document.getElementById('deviceTitle').textContent = t('modal.deviceTitle');
             document.getElementById('btnCloseDevice').textContent = t('modal.close');
             document.getElementById('btnCancelDevice').textContent = t('modal.cancel');
+            document.getElementById('btnPollNow').textContent = t('modal.pollNow');
             document.getElementById('deviceStep').textContent = t('modal.deviceStep');
             document.getElementById('deviceUrl').textContent = t('modal.openUrl');
 
@@ -261,6 +264,7 @@
             document.getElementById('deviceCode').textContent = '—';
             document.getElementById('deviceUrl').href = '#';
             currentDeviceCode = '';
+            lastPollError = false;
             if (devicePollTimer) {
                 clearInterval(devicePollTimer);
                 devicePollTimer = null;
@@ -277,6 +281,7 @@
                 currentDeviceCode = data.device_code;
                 deviceExpiresAt = Date.now() + (data.expires_in || 600) * 1000;
                 devicePollIntervalSec = data.interval || 5;
+                lastPollError = false;
                 document.getElementById('deviceCode').textContent = data.user_code || '—';
                 document.getElementById('deviceUrl').href = data.verification_url || '#';
                 document.getElementById('deviceStatus').textContent = t('modal.waiting', { seconds: devicePollIntervalSec });
@@ -306,6 +311,7 @@
                 const data = await r.json();
                 if (data.status === 'pending') {
                     document.getElementById('deviceStatus').textContent = t('modal.waiting', { seconds: devicePollIntervalSec });
+                    lastPollError = false;
                     return;
                 }
                 if (data.status === 'approved') {
@@ -316,13 +322,18 @@
                     setTimeout(closeDeviceModal, 1500);
                     return;
                 }
+                if (data.status === 'rejected') {
+                    document.getElementById('deviceStatus').textContent = t('modal.expired');
+                    clearInterval(devicePollTimer);
+                    devicePollTimer = null;
+                    return;
+                }
+                // Unknown/error: keep polling but surface message.
                 document.getElementById('deviceStatus').textContent = t('modal.error');
-                clearInterval(devicePollTimer);
-                devicePollTimer = null;
+                lastPollError = true;
             } catch (e) {
                 document.getElementById('deviceStatus').textContent = t('modal.error');
-                clearInterval(devicePollTimer);
-                devicePollTimer = null;
+                lastPollError = true;
             }
         }
 
@@ -361,6 +372,7 @@
         document.getElementById('btnSync').addEventListener('click', triggerSync);
         document.getElementById('btnReloadTrakt').addEventListener('click', loadTraktAccounts);
         document.getElementById('btnAddTrakt').addEventListener('click', startDeviceFlow);
+        document.getElementById('btnPollNow').addEventListener('click', pollDeviceFlow);
         document.getElementById('search').addEventListener('input', renderHistory);
         document.getElementById('historyUser').addEventListener('change', loadHistory);
         document.getElementById('langSelect').addEventListener('change', async (e) => {

@@ -30,6 +30,7 @@
   "modal.openUrl": "Open verification URL",
   "modal.close": "Close",
   "modal.cancel": "Cancel",
+  "modal.pollNow": "Check now",
   "modal.waiting": "Waiting for approval… (retry in {seconds}s)",
   "modal.approved": "Approved for user {user}. Adding to list…",
   "modal.expired": "Session expired. Start again.",
