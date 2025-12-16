@@ -67,6 +67,19 @@ button.active {
     width: 100%;
 }
 
+.alpha-row {
+    display: grid;
+    grid-template-columns: repeat(27, minmax(30px, 1fr));
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.alpha-row button {
+    width: 100%;
+    justify-content: center;
+}
+
 input,
 select {
     background: #0f1320;
