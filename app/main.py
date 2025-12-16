@@ -101,6 +101,7 @@ async def refresh_cache(force: bool = False) -> None:
 
     cache.users.clear()
     cache.user_history.clear()
+    cache.catalog.clear()
 
     try:
         jf_users = await jellyfin.get_users()
@@ -154,6 +155,15 @@ async def refresh_cache(force: bool = False) -> None:
             season_id = str(it.get("ParentId") or it.get("SeasonId") or "").strip()
             if series_primary_tag and show_id:
                 series_thumb_url = _jellyfin_thumb(show_id, series_primary_tag)
+
+            provider_key = _provider_key_from_ids(it.get("ProviderIds", {}))
+            if provider_key:
+                cache.catalog.setdefault(provider_key, {
+                    "providerKey": provider_key,
+                    "type": typ,
+                    "title": it.get("SeriesName") if typ == "episode" else it.get("Name"),
+                    "year": str(it.get("ProductionYear") or ""),
+                })
 
             event = {
                 "source": "jellyfin",
@@ -271,6 +281,39 @@ async def api_trakt_device_poll(payload: Dict[str, Any] = Body(...)):
         return JSONResponse({"status": "error", "error": "missing_device_code"}, status_code=400)
     status, data = await trakt_service.poll_device_flow(device_code)
     return JSONResponse({"status": status, **data})
+
+
+@app.get("/api/trakt/items")
+async def api_trakt_items():
+    """List Jellyfin titles (movie/show) with per-account scrobble flag."""
+    await refresh_cache(force=False)
+    items = sorted(cache.catalog.values(), key=lambda x: (x.get("type", ""), x.get("title", "")))
+    accounts = list(trakt_service.accounts.keys()) if trakt_service else []
+    resp: List[Dict[str, Any]] = []
+    for it in items:
+        pk = it.get("providerKey") or ""
+        if not pk:
+            continue
+        entry = dict(it)
+        entry["accounts"] = [
+            {"username": u, "enabled": trakt_service.item_allowed(u, pk) if trakt_service else False}
+            for u in accounts
+        ]
+        resp.append(entry)
+    return JSONResponse({"items": resp, "accounts": accounts})
+
+
+@app.post("/api/trakt/items/set")
+async def api_trakt_items_set(payload: Dict[str, Any] = Body(...)):
+    if not trakt_service or not trakt_service.ready:
+        return JSONResponse({"ok": False, "error": "trakt_not_configured"}, status_code=400)
+    pk = str(payload.get("providerKey") or "").strip()
+    username = str(payload.get("username") or "").strip()
+    enabled = bool(payload.get("enabled", True))
+    if not pk or not username:
+        return JSONResponse({"ok": False, "error": "missing_params"}, status_code=400)
+    ok = trakt_service.set_item_rule(username, pk, enabled)
+    return JSONResponse({"ok": ok})
 
 
 @app.get("/api/users")

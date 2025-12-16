@@ -37,6 +37,7 @@
                     <div id="traktHelper" class="muted">Attiva o disattiva lo scrobbling per ciascun account collegato.</div>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button id="btnContentFilters">Content filters</button>
                     <button id="btnAddTrakt">Add Trakt account</button>
                     <button id="btnReloadTrakt">Reload accounts</button>
                 </div>
@@ -81,6 +82,19 @@
         </div>
     </div>
 
+    <div id="contentModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-panel" style="max-width:1100px;">
+            <div class="modal-header">
+                <div id="contentTitle" style="font-weight:700;">Content filters</div>
+                <button id="btnCloseContent">Close</button>
+            </div>
+            <div class="modal-body" style="gap:14px;">
+                <input id="contentSearch" placeholder="Filter content…" style="width:100%;" />
+                <div id="contentList" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow:auto;"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let translations = {};
         let currentLang = 'en';
@@ -92,6 +106,7 @@
         let deviceExpiresAt = 0;
         let devicePollIntervalSec = 5;
         let lastPollError = false;
+        let contentItems = [];
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -126,6 +141,7 @@
             document.getElementById('traktHelper').textContent = t('panel.traktHelper');
             document.getElementById('btnAddTrakt').textContent = t('button.addAccount');
             document.getElementById('btnReloadTrakt').textContent = t('button.reloadAccounts');
+            document.getElementById('btnContentFilters').textContent = t('button.contentFilters');
             document.getElementById('historyTitle').textContent = t('panel.historyTitle');
             document.getElementById('historyHelper').textContent = t('history.helper');
             document.getElementById('search').placeholder = t('search.placeholder');
@@ -254,6 +270,53 @@
             renderTraktAccounts(!!data.configured);
         }
 
+        function renderContentList() {
+            const q = (document.getElementById('contentSearch').value || '').toLowerCase().trim();
+            const list = document.getElementById('contentList');
+            if (!contentItems.length) {
+                list.innerHTML = `<div class="muted">${t('content.empty')}</div>`;
+                return;
+            }
+            const filtered = q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems;
+            list.innerHTML = filtered.map(it => {
+                const accountsHtml = (it.accounts || []).map(acc => {
+                    const checked = acc.enabled ? 'checked' : '';
+                    return `<label style="display:flex; align-items:center; gap:6px;">
+                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey)}" ${checked} />
+                      <span class="muted">${escapeHtml(acc.username)}</span>
+                    </label>`;
+                }).join('');
+                return `<div class="card" style="padding:10px; flex-direction:column; gap:6px;">
+                  <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                    <div>
+                      <div class="title">${escapeHtml(it.title || '')}</div>
+                      <div class="muted">${escapeHtml(it.type || '')}</div>
+                    </div>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap;">${accountsHtml}</div>
+                  </div>
+                </div>`;
+            }).join('');
+
+            list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', async (e) => {
+                    const username = e.target.getAttribute('data-username');
+                    const pk = e.target.getAttribute('data-provider-key');
+                    await fetch('/api/trakt/items/set', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, providerKey: pk, enabled: e.target.checked })
+                    });
+                });
+            });
+        }
+
+        async function loadContentItems() {
+            const r = await fetch('/api/trakt/items');
+            const data = await r.json();
+            contentItems = data.items || [];
+            renderContentList();
+        }
+
         function openDeviceModal() {
             document.getElementById('deviceModal').style.display = 'flex';
         }
@@ -280,7 +343,7 @@
                 if (!data.ok) throw new Error(data.error || 'failed');
                 currentDeviceCode = data.device_code;
                 deviceExpiresAt = Date.now() + (data.expires_in || 600) * 1000;
-                devicePollIntervalSec = data.interval || 5;
+                devicePollIntervalSec = Math.max(data.interval || 5, 10); // wait a bit longer than spec to avoid 400 while user authorizes
                 lastPollError = false;
                 document.getElementById('deviceCode').textContent = data.user_code || '—';
                 document.getElementById('deviceUrl').href = data.verification_url || '#';
@@ -373,6 +436,10 @@
         document.getElementById('btnReloadTrakt').addEventListener('click', loadTraktAccounts);
         document.getElementById('btnAddTrakt').addEventListener('click', startDeviceFlow);
         document.getElementById('btnPollNow').addEventListener('click', pollDeviceFlow);
+        document.getElementById('btnContentFilters').addEventListener('click', async () => {
+            await loadContentItems();
+            document.getElementById('contentModal').style.display = 'flex';
+        });
         document.getElementById('search').addEventListener('input', renderHistory);
         document.getElementById('historyUser').addEventListener('change', loadHistory);
         document.getElementById('langSelect').addEventListener('change', async (e) => {
@@ -384,6 +451,9 @@
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('deviceModal').addEventListener('click', (e) => { if (e.target === document.getElementById('deviceModal')) closeDeviceModal(); });
+        document.getElementById('btnCloseContent').addEventListener('click', () => { document.getElementById('contentModal').style.display = 'none'; });
+        document.getElementById('contentModal').addEventListener('click', (e) => { if (e.target === document.getElementById('contentModal')) document.getElementById('contentModal').style.display = 'none'; });
+        document.getElementById('contentSearch').addEventListener('input', renderContentList);
 
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';

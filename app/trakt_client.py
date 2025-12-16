@@ -72,6 +72,8 @@ class TraktService:
         self.state_path = state_path
         self.accounts: Dict[str, TraktAccount] = {}
         self.last_synced: Dict[str, float] = {}
+        # account_items: username -> providerKey -> enabled(bool). Missing means allowed by default.
+        self.account_items: Dict[str, Dict[str, bool]] = {}
         self._load_state()
         self._ensure_state_file()
 
@@ -97,12 +99,14 @@ class TraktService:
             if acc.username:
                 self.accounts[acc.username] = acc
         self.last_synced = {str(k): float(v) for k, v in (data.get("last_synced") or {}).items()}
+        self.account_items = {str(k): {str(pk): bool(vv) for pk, vv in (v or {}).items()} for k, v in (data.get("account_items") or {}).items()}
 
     def _save_state(self) -> None:
         os.makedirs(os.path.dirname(self.state_path) or ".", exist_ok=True)
         data = {
             "accounts": [acc.to_dict() for acc in self.accounts.values()],
             "last_synced": self.last_synced,
+            "account_items": self.account_items,
         }
         try:
             with open(self.state_path, "w", encoding="utf-8") as f:
@@ -137,6 +141,24 @@ class TraktService:
         acc.enabled = bool(enabled)
         self._save_state()
         return True
+
+    def set_item_rule(self, username: str, provider_key: str, enabled: bool) -> bool:
+        if not username or not provider_key:
+            return False
+        if username not in self.accounts:
+            return False
+        rules = self.account_items.setdefault(username, {})
+        rules[provider_key] = bool(enabled)
+        self._save_state()
+        return True
+
+    def item_allowed(self, username: str, provider_key: str) -> bool:
+        if not provider_key:
+            return False
+        rules = self.account_items.get(username) or {}
+        if provider_key in rules:
+            return bool(rules[provider_key])
+        return True  # default allow
 
     async def _refresh_token(self, acc: TraktAccount) -> bool:
         if not acc.refresh_token or not self.client_id or not self.client_secret:
@@ -229,6 +251,8 @@ class TraktService:
                 ids = _trakt_ids(str(ev.get("providerKey") or ""))
                 if not ids:
                     continue
+                if not self.item_allowed(username, str(ev.get("providerKey") or "")):
+                    continue
                 record = {"ids": ids, "watched_at": _iso(ts)}
                 typ = str(ev.get("type") or "").lower()
                 if typ == "movie":
@@ -287,7 +311,8 @@ class TraktService:
                         data = r.json()
                     except Exception:
                         logger.warning("Trakt: device poll returned non-JSON (status %s)", r.status_code)
-                        return "error", {"error": "poll_not_json"}
+                        # Treat as pending if still within code validity window.
+                        return "pending", {"error": "poll_not_json"}
                     if data.get("error") in ("authorization_pending", "slow_down"):
                         return "pending", data
                     if data.get("error") == "expired_token":

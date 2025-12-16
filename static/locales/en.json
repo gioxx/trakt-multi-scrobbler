@@ -9,6 +9,7 @@
   "button.syncing": "Syncing…",
   "button.reloadAccounts": "Reload accounts",
   "button.addAccount": "Add Trakt account",
+  "button.contentFilters": "Content filters",
   "panel.traktTitle": "Trakt accounts",
   "panel.traktHelper": "Toggle which Trakt users will receive new Jellyfin watches.",
   "panel.historyTitle": "Jellyfin watch history",
@@ -36,6 +37,7 @@
   "modal.expired": "Session expired. Start again.",
   "modal.startError": "Cannot start device flow. Check Trakt client id/secret.",
   "modal.error": "Authorization failed. Try again.",
+  "content.empty": "No content found.",
   "summary.template": "{users} Jellyfin user(s) · updated: {date} · {trakt}",
   "history.noItems": "No history yet."
 }

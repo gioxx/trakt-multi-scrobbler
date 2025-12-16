@@ -13,6 +13,8 @@ class Cache:
     last_refresh_ts: float = 0.0
     users: Dict[str, str] = field(default_factory=dict)  # user_id -> friendly_name
     user_history: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)  # user_id -> events
+    # providerKey -> minimal metadata for UI (type, title, year)
+    catalog: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def is_stale(self, refresh_minutes: int) -> bool:
         if self.last_refresh_ts <= 0:

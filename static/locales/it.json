@@ -9,6 +9,7 @@
   "button.syncing": "Invio in corso…",
   "button.reloadAccounts": "Ricarica account",
   "button.addAccount": "Aggiungi account Trakt",
+  "button.contentFilters": "Filtri contenuti",
   "panel.traktTitle": "Account Trakt",
   "panel.traktHelper": "Attiva o disattiva gli utenti Trakt che riceveranno gli eventi da Jellyfin.",
   "panel.historyTitle": "Storico visioni da Jellyfin",
@@ -36,6 +37,7 @@
   "modal.expired": "Sessione scaduta. Ripeti la procedura.",
   "modal.startError": "Impossibile avviare il device flow. Controlla client id/secret.",
   "modal.error": "Autorizzazione fallita. Riprova.",
+  "content.empty": "Nessun contenuto trovato.",
   "summary.template": "{users} utente/i Jellyfin · aggiornato: {date} · {trakt}",
   "history.noItems": "Nessuna visione registrata."
 }
