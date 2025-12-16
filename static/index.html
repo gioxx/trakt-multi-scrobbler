@@ -54,6 +54,21 @@
             </div>
             <div class="row">
                 <input id="search" placeholder="Filter content…" style="flex:1 1 320px;" />
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button id="filterAll" class="pill">All</button>
+                    <button id="filterMovies" class="pill">Movies</button>
+                    <button id="filterShows" class="pill">Shows</button>
+                </div>
+            </div>
+            <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <label class="muted" for="bulkAccount">Bulk target:</label>
+                    <select id="bulkAccount" style="min-width:220px;"></select>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button id="btnSelectAll">Select all</button>
+                    <button id="btnDeselectAll">Deselect all</button>
+                </div>
             </div>
             <div id="grid" class="grid"></div>
         </section>
@@ -90,6 +105,7 @@
         let devicePollIntervalSec = 5;
         let lastPollError = false;
         let contentItems = [];
+        let contentFilter = 'all';
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -127,6 +143,11 @@
             document.getElementById('contentTitle').textContent = t('panel.contentTitle');
             document.getElementById('contentHelper').textContent = t('content.helper');
             document.getElementById('search').placeholder = t('search.placeholder');
+            document.getElementById('filterAll').textContent = t('filter.all');
+            document.getElementById('filterMovies').textContent = t('filter.movies');
+            document.getElementById('filterShows').textContent = t('filter.shows');
+            document.getElementById('btnSelectAll').textContent = t('bulk.select');
+            document.getElementById('btnDeselectAll').textContent = t('bulk.deselect');
             document.getElementById('deviceTitle').textContent = t('modal.deviceTitle');
             document.getElementById('btnCloseDevice').textContent = t('modal.close');
             document.getElementById('btnCancelDevice').textContent = t('modal.cancel');
@@ -162,14 +183,17 @@
                 const badge = acc.enabled ? t('label.enabled') : t('label.disabled');
                 const checked = acc.enabled ? 'checked' : '';
                 return `
-        <label class="card" style="align-items:center; padding:10px;">
+        <div class="card" style="align-items:center; padding:10px;">
           <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
             <div class="title">${escapeHtml(acc.username)}</div>
             <div class="muted">${t('label.lastSynced', {date: last})}</div>
             <div class="muted">${t('label.traktStatus', {status: badge})}</div>
           </div>
-          <input type="checkbox" data-username="${escapeHtml(acc.username)}" ${checked} style="width:22px; height:22px; cursor:pointer;" />
-        </label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" data-username="${escapeHtml(acc.username)}" ${checked} style="width:22px; height:22px; cursor:pointer;" />
+            <button class="pill" data-delete="${escapeHtml(acc.username)}" style="background:#241014;">${t('button.delete')}</button>
+          </div>
+        </div>
       `;
             }).join('');
 
@@ -183,6 +207,19 @@
                     });
                 });
             });
+
+            container.querySelectorAll('button[data-delete]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const username = btn.getAttribute('data-delete');
+                    await fetch('/api/trakt/accounts/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username })
+                    });
+                    await loadTraktAccounts();
+                    await loadContentItems();
+                });
+            });
         }
 
         async function loadTraktAccounts() {
@@ -190,6 +227,11 @@
             const data = await r.json();
             traktAccounts = data.accounts || [];
             renderTraktAccounts(!!data.configured);
+            // bulk select options
+            const bulkSel = document.getElementById('bulkAccount');
+            const prev = bulkSel.value;
+            bulkSel.innerHTML = traktAccounts.map(a => `<option value="${escapeHtml(a.username)}">${escapeHtml(a.username)}</option>`).join('');
+            if (prev && traktAccounts.some(a => a.username === prev)) bulkSel.value = prev;
         }
 
         function renderContentList() {
@@ -199,7 +241,8 @@
                 list.innerHTML = `<div class="muted">${t('content.empty')}</div>`;
                 return;
             }
-            const filtered = q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems;
+            const filtered = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
+                .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')));
             list.innerHTML = filtered.map(it => {
                 const accountsHtml = (it.accounts || []).map(acc => {
                     const checked = acc.enabled ? 'checked' : '';
@@ -239,6 +282,27 @@
             const data = await r.json();
             contentItems = data.items || [];
             renderContentList();
+        }
+
+        async function bulkApply(enable) {
+            const account = document.getElementById('bulkAccount').value;
+            if (!account) return;
+            const q = (document.getElementById('search').value || '').toLowerCase().trim();
+            const targets = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
+                .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')));
+            for (const it of targets) {
+                await fetch('/api/trakt/items/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: account,
+                        providerKey: it.providerKey || "",
+                        groupKey: it.groupKey || "",
+                        enabled: enable
+                    })
+                });
+            }
+            await loadContentItems();
         }
 
         function openDeviceModal() {
@@ -306,6 +370,7 @@
                     clearInterval(devicePollTimer);
                     devicePollTimer = null;
                     await loadTraktAccounts();
+                    await loadContentItems();
                     setTimeout(closeDeviceModal, 1500);
                     return;
                 }
@@ -360,6 +425,8 @@
         document.getElementById('btnReloadTrakt').addEventListener('click', loadTraktAccounts);
         document.getElementById('btnAddTrakt').addEventListener('click', startDeviceFlow);
         document.getElementById('btnPollNow').addEventListener('click', pollDeviceFlow);
+        document.getElementById('btnSelectAll').addEventListener('click', () => bulkApply(true));
+        document.getElementById('btnDeselectAll').addEventListener('click', () => bulkApply(false));
         document.getElementById('search').addEventListener('input', renderContentList);
         document.getElementById('langSelect').addEventListener('change', async (e) => {
             await loadLang(e.target.value);
@@ -370,6 +437,9 @@
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('deviceModal').addEventListener('click', (e) => { if (e.target === document.getElementById('deviceModal')) closeDeviceModal(); });
+        document.getElementById('filterAll').addEventListener('click', () => { contentFilter = 'all'; renderContentList(); });
+        document.getElementById('filterMovies').addEventListener('click', () => { contentFilter = 'movies'; renderContentList(); });
+        document.getElementById('filterShows').addEventListener('click', () => { contentFilter = 'shows'; renderContentList(); });
 
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';

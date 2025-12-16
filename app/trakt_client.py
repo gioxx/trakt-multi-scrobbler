@@ -142,6 +142,16 @@ class TraktService:
         self._save_state()
         return True
 
+    def remove_account(self, username: str) -> bool:
+        if username not in self.accounts:
+            return False
+        self.accounts.pop(username, None)
+        self.last_synced.pop(username, None)
+        self.account_items.pop(username, None)
+        self._save_state()
+        logger.info("Trakt: removed account %s", username)
+        return True
+
     def set_item_rule(self, username: str, key: str, enabled: bool) -> bool:
         if not username or not key:
             return False

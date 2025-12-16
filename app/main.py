@@ -262,6 +262,17 @@ async def api_toggle_trakt_account(payload: Dict[str, Any] = Body(...)):
     return JSONResponse({"ok": ok})
 
 
+@app.post("/api/trakt/accounts/delete")
+async def api_delete_trakt_account(payload: Dict[str, Any] = Body(...)):
+    if not trakt_service:
+        return JSONResponse({"ok": False, "error": "trakt_not_configured"}, status_code=400)
+    username = str(payload.get("username") or "").strip()
+    if not username:
+        return JSONResponse({"ok": False, "error": "missing_username"}, status_code=400)
+    ok = trakt_service.remove_account(username)
+    return JSONResponse({"ok": ok})
+
+
 @app.post("/api/trakt/sync")
 async def api_trakt_sync():
     await refresh_cache(force=False)
