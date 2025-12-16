@@ -1,8 +1,6 @@
 # Trakt Multi-Scrobbler (Jellyfin → Trakt)
 
-Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watched” su uno o più account Trakt. Ogni account Trakt ha una checkbox per attivare o disattivare lo scrobbling.
-
-> Importante: l’app **non** genera le credenziali Trakt. Devi ottenere `access_token`, `refresh_token` ed `expires_at` per ogni utente Trakt tramite il normale OAuth/device flow.
+Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watched” su uno o più account Trakt. Ogni account Trakt ha una checkbox per attivare o disattivare lo scrobbling e puoi collegare nuovi account direttamente dalla UI (device flow guidato).
 
 ## Cosa fa
 - Scarica la cronologia “Played” di Jellyfin (film ed episodi) usando `JELLYFIN_URL` e `JELLYFIN_APIKEY`.
@@ -24,7 +22,7 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    cd trakt-multi-scrobbler
    ```
 
-2) **Crea il file di configurazione Trakt** (`trakt_accounts.json` nella root):  
+2) **Crea il file di configurazione Trakt** (`trakt_accounts.json` nella root, può anche essere vuoto: verrà popolato dalla UI):  
    ```json
    {
      "accounts": [
@@ -44,7 +42,7 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
 
 3) **Ottieni i token Trakt (una volta per ogni utente)**  
    Hai due alternative:
-   - **Via UI guidata (consigliato se hai già impostato le variabili d’ambiente)**: dal pannello web clicca “Add Trakt account”, copia il codice mostrato, apri il link e autorizza. L’app salverà automaticamente `access_token`/`refresh_token` nel file `trakt_accounts.json`.
+   - **Via UI guidata (consigliato)**: avvia l’app, clicca “Add Trakt account”, copia il codice, apri il link e autorizza. L’app aggiungerà automaticamente `access_token`/`refresh_token`/`expires_at` al file `trakt_accounts.json`.
    - **Via curl manuale**:
      - Vai su https://trakt.tv/oauth/applications e prendi `client_id` e `client_secret` della tua app.
      - Avvia il device flow per ottenere il `user_code`:
@@ -89,7 +87,7 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    Assicurati di montare `trakt_accounts.json` nel container (vedi `docker-compose.yml` già pronto).
 
 ### Posso ottenere i token Trakt via pagina web?
-Al momento no: il progetto non integra il device flow Trakt via UI. Per ora si usa il flusso manuale descritto sopra (pochi curl). Se vuoi automatizzarlo, si può aggiungere in futuro una mini-pagina che guida al device flow e salva i token nel JSON, ma non è implementata in questa versione.
+Sì. La UI integra il device flow Trakt: “Add Trakt account” mostra il codice e il link di verifica, poi salva i token nel JSON una volta approvato. In alternativa puoi usare i comandi `curl` indicati sopra.
 
 ## Come usarlo
 - **Trakt accounts**: vedi l’elenco degli utenti Trakt trovati nel JSON; attiva/disattiva la checkbox per decidere chi riceve gli scrobble.
