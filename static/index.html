@@ -37,7 +37,6 @@
                     <div id="traktHelper" class="muted">Attiva o disattiva lo scrobbling per ciascun account collegato.</div>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button id="btnContentFilters">Content filters</button>
                     <button id="btnAddTrakt">Add Trakt account</button>
                     <button id="btnReloadTrakt">Reload accounts</button>
                 </div>
@@ -49,15 +48,14 @@
         <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; background:#0f1320;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
-                    <div id="historyTitle" style="font-weight:700; font-size:17px;">Jellyfin history</div>
-                    <div id="historyHelper" class="muted">Scegli un utente Jellyfin e guarda cosa ha visto.</div>
+                    <div id="contentTitle" style="font-weight:700; font-size:17px;">Content filters</div>
+                    <div id="contentHelper" class="muted">Decidi per quali account Trakt scrobbla ogni film/serie.</div>
                 </div>
             </div>
             <div class="row">
-                <select id="historyUser" style="min-width:240px;"></select>
-                <input id="search" placeholder="Filter…" />
+                <input id="search" placeholder="Filter content…" style="flex:1 1 320px;" />
             </div>
-            <div id="grid" class="grid"></div>
+            <div id="grid" style="display:flex; flex-direction:column; gap:10px;"></div>
         </section>
     </main>
 
@@ -82,24 +80,9 @@
         </div>
     </div>
 
-    <div id="contentModal" class="modal-backdrop" style="display:none;">
-        <div class="modal-panel" style="max-width:1100px;">
-            <div class="modal-header">
-                <div id="contentTitle" style="font-weight:700;">Content filters</div>
-                <button id="btnCloseContent">Close</button>
-            </div>
-            <div class="modal-body" style="gap:14px;">
-                <input id="contentSearch" placeholder="Filter content…" style="width:100%;" />
-                <div id="contentList" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow:auto;"></div>
-            </div>
-        </div>
-    </div>
-
     <script>
         let translations = {};
         let currentLang = 'en';
-        let allUsers = [];
-        let historyItems = [];
         let traktAccounts = [];
         let devicePollTimer = null;
         let currentDeviceCode = '';
@@ -141,9 +124,8 @@
             document.getElementById('traktHelper').textContent = t('panel.traktHelper');
             document.getElementById('btnAddTrakt').textContent = t('button.addAccount');
             document.getElementById('btnReloadTrakt').textContent = t('button.reloadAccounts');
-            document.getElementById('btnContentFilters').textContent = t('button.contentFilters');
-            document.getElementById('historyTitle').textContent = t('panel.historyTitle');
-            document.getElementById('historyHelper').textContent = t('history.helper');
+            document.getElementById('contentTitle').textContent = t('panel.contentTitle');
+            document.getElementById('contentHelper').textContent = t('content.helper');
             document.getElementById('search').placeholder = t('search.placeholder');
             document.getElementById('deviceTitle').textContent = t('modal.deviceTitle');
             document.getElementById('btnCloseDevice').textContent = t('modal.close');
@@ -159,67 +141,7 @@
             });
         }
 
-        function historyHTML(it) {
-            const date = it.date ? new Date(it.date * 1000).toLocaleString() : '—';
-            const thumb = it.seriesThumb || it.thumb || '';
-            const isEpisode = !!it.seriesName;
-            const code = (it.seasonIndex != null && it.episodeIndex != null)
-                ? `S${String(it.seasonIndex).padStart(2, '0')}E${String(it.episodeIndex).padStart(2, '0')}`
-                : '';
-            const episodeLine = isEpisode
-                ? [it.seasonName, code, it.title].filter(Boolean).map(escapeHtml).join(' · ')
-                : '';
-            return `
-        <div class="card">
-          <div class="poster">
-            ${thumb ? `<img src="${thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`}
-          </div>
-          <div class="meta">
-            <div class="title">${isEpisode ? escapeHtml(it.seriesName || '') : escapeHtml(it.title || '')}</div>
-            <div class="muted">${episodeLine ? `${episodeLine} · ` : ''}${t('label.viewed')}: ${escapeHtml(date)}</div>
-          </div>
-        </div>
-      `;
-        }
-
-        function renderHistory() {
-            const q = (document.getElementById('search').value || '').trim().toLowerCase();
-            const filtered = q ? historyItems.filter(i => (i.title || '').toLowerCase().includes(q) || (i.seriesName || '').toLowerCase().includes(q)) : historyItems;
-            const grid = document.getElementById('grid');
-            if (!filtered.length) {
-                grid.innerHTML = `<div class="muted">${t('history.noItems')}</div>`;
-                grid.classList.remove('grid');
-                return;
-            }
-            grid.classList.add('grid');
-            grid.innerHTML = filtered.map(historyHTML).join('');
-        }
-
-        async function loadHistory() {
-            const userId = document.getElementById('historyUser').value;
-            if (!userId) {
-                historyItems = [];
-                renderHistory();
-                return;
-            }
-            const r = await fetch(`/api/user/${encodeURIComponent(userId)}/history`);
-            const data = await r.json();
-            historyItems = (data.items || []).sort((a, b) => (b.date || 0) - (a.date || 0));
-            renderHistory();
-        }
-
-        async function loadUsers() {
-            const r = await fetch('/api/users');
-            const data = await r.json();
-            allUsers = (data.users || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            const select = document.getElementById('historyUser');
-            const prev = select.value;
-            select.innerHTML = allUsers.map(u => `<option value="${u.user_id}">${escapeHtml(u.name)} (${escapeHtml(u.user_id)})</option>`).join('');
-            if (prev && allUsers.some(u => u.user_id === prev)) {
-                select.value = prev;
-            }
-            await loadHistory();
-        }
+        // Content filters list rendering
 
         function renderTraktAccounts(configured) {
             const container = document.getElementById('traktAccounts');
@@ -271,8 +193,8 @@
         }
 
         function renderContentList() {
-            const q = (document.getElementById('contentSearch').value || '').toLowerCase().trim();
-            const list = document.getElementById('contentList');
+            const q = (document.getElementById('search').value || '').toLowerCase().trim();
+            const list = document.getElementById('grid');
             if (!contentItems.length) {
                 list.innerHTML = `<div class="muted">${t('content.empty')}</div>`;
                 return;
@@ -429,38 +351,30 @@
         document.getElementById('btnRefresh').addEventListener('click', async () => {
             await fetch('/api/refresh', { method: 'POST' });
             await loadSummary();
-            await loadHistory();
+            await loadContentItems();
         });
 
         document.getElementById('btnSync').addEventListener('click', triggerSync);
         document.getElementById('btnReloadTrakt').addEventListener('click', loadTraktAccounts);
         document.getElementById('btnAddTrakt').addEventListener('click', startDeviceFlow);
         document.getElementById('btnPollNow').addEventListener('click', pollDeviceFlow);
-        document.getElementById('btnContentFilters').addEventListener('click', async () => {
-            await loadContentItems();
-            document.getElementById('contentModal').style.display = 'flex';
-        });
-        document.getElementById('search').addEventListener('input', renderHistory);
-        document.getElementById('historyUser').addEventListener('change', loadHistory);
+        document.getElementById('search').addEventListener('input', renderContentList);
         document.getElementById('langSelect').addEventListener('change', async (e) => {
             await loadLang(e.target.value);
             await loadSummary();
             await loadTraktAccounts();
-            await loadHistory();
+            await loadContentItems();
         });
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('deviceModal').addEventListener('click', (e) => { if (e.target === document.getElementById('deviceModal')) closeDeviceModal(); });
-        document.getElementById('btnCloseContent').addEventListener('click', () => { document.getElementById('contentModal').style.display = 'none'; });
-        document.getElementById('contentModal').addEventListener('click', (e) => { if (e.target === document.getElementById('contentModal')) document.getElementById('contentModal').style.display = 'none'; });
-        document.getElementById('contentSearch').addEventListener('input', renderContentList);
 
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';
             await loadLang(storedLang);
             await loadSummary();
             await loadTraktAccounts();
-            await loadUsers();
+            await loadContentItems();
         })();
     </script>
 </body>
