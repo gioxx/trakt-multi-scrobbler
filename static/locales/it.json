@@ -45,6 +45,8 @@
   "modal.startError": "Impossibile avviare il device flow. Controlla client id/secret.",
   "modal.error": "Autorizzazione fallita. Riprova.",
   "content.empty": "Nessun contenuto trovato.",
+  "orphans.title": "Contenuti non assegnati",
+  "orphans.helper": "Nuovi titoli senza account Trakt selezionati.",
   "summary.template": "{users} utente/i Jellyfin · aggiornato: {date} · {trakt}",
   "history.noItems": "Nessuna visione registrata."
 }

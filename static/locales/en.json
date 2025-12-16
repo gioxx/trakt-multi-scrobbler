@@ -45,6 +45,8 @@
   "modal.startError": "Cannot start device flow. Check Trakt client id/secret.",
   "modal.error": "Authorization failed. Try again.",
   "content.empty": "No content found.",
+  "orphans.title": "Unassigned content",
+  "orphans.helper": "New titles with no Trakt accounts selected yet.",
   "summary.template": "{users} Jellyfin user(s) · updated: {date} · {trakt}",
   "history.noItems": "No history yet."
 }
