@@ -33,6 +33,16 @@
         <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
             <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
                 <div>
+                    <div id="jellyfinTitle" style="font-weight:700; font-size:17px;">Jellyfin users</div>
+                    <div id="jellyfinHelper" class="muted">Scegli quali utenti Jellyfin usare come base per lo scrobbling.</div>
+                </div>
+            </div>
+            <div id="jellyfinUsers" class="grid"></div>
+        </section>
+
+        <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
+            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
+                <div>
                     <div id="traktTitle" style="font-weight:700; font-size:17px;">Trakt accounts</div>
                     <div id="traktHelper" class="muted">Attiva o disattiva lo scrobbling per ciascun account collegato.</div>
                 </div>
@@ -111,6 +121,7 @@
     <script>
         let translations = {};
         let currentLang = 'en';
+        let jellyfinUsers = [];
         let traktAccounts = [];
         let devicePollTimer = null;
         let currentDeviceCode = '';
@@ -167,6 +178,8 @@
             document.getElementById('brandSubtitle').textContent = t('subtitle');
             document.getElementById('btnRefresh').textContent = t('button.refresh');
             document.getElementById('btnSync').textContent = t('button.sync');
+            document.getElementById('jellyfinTitle').textContent = t('panel.jellyfinTitle');
+            document.getElementById('jellyfinHelper').textContent = t('panel.jellyfinHelper');
             document.getElementById('traktTitle').textContent = t('panel.traktTitle');
             document.getElementById('traktHelper').textContent = t('panel.traktHelper');
             document.getElementById('btnAddTrakt').textContent = t('button.addAccount');
@@ -197,8 +210,52 @@
             });
         }
 
-        // Content filters list rendering
+        // Jellyfin users selector
+        function renderJellyfinUsers() {
+            const container = document.getElementById('jellyfinUsers');
+            if (!jellyfinUsers.length) {
+                container.innerHTML = `<div class="muted">${t('label.noJellyfinUsers')}</div>`;
+                return;
+            }
+            container.innerHTML = jellyfinUsers.map(u => {
+                const checked = u.enabled ? 'checked' : '';
+                const idLine = u.user_id ? `<div class="muted" style="font-size:12px;">${escapeHtml(u.user_id)}</div>` : '';
+                return `
+        <div class="card" style="align-items:center; padding:10px;">
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+            <div class="title">${escapeHtml(u.name || '')}</div>
+            ${idLine}
+          </div>
+          <input type="checkbox" data-user-id="${escapeHtml(u.user_id || '')}" ${checked} style="width:22px; height:22px; cursor:pointer;" />
+        </div>
+      `;
+            }).join('');
+            container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', async (e) => {
+                    const uid = e.target.getAttribute('data-user-id');
+                    try {
+                        await fetch('/api/users/toggle', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user_id: uid, enabled: e.target.checked })
+                        });
+                        await loadSummary();
+                    } catch (err) {
+                        e.target.checked = !e.target.checked;
+                        alert(t('label.jellyfinToggleError'));
+                    }
+                });
+            });
+        }
 
+        async function loadJellyfinUsers() {
+            const r = await fetch('/api/users');
+            const data = await r.json();
+            jellyfinUsers = data.users || [];
+            renderJellyfinUsers();
+        }
+
+        // Content filters list rendering
         function renderTraktAccounts(configured) {
             const container = document.getElementById('traktAccounts');
             const notice = document.getElementById('traktNotice');
@@ -528,6 +585,7 @@
         document.getElementById('btnRefresh').addEventListener('click', async () => {
             await fetch('/api/refresh', { method: 'POST' });
             await loadSummary();
+            await loadJellyfinUsers();
             await loadContentItems();
         });
 
@@ -541,6 +599,7 @@
         document.getElementById('langSelect').addEventListener('change', async (e) => {
             await loadLang(e.target.value);
             await loadSummary();
+            await loadJellyfinUsers();
             await loadTraktAccounts();
             await loadContentItems();
         });
@@ -556,6 +615,7 @@
             const storedLang = localStorage.getItem('lang') || 'en';
             await loadLang(storedLang);
             await loadSummary();
+            await loadJellyfinUsers();
             await loadTraktAccounts();
             await loadContentItems();
         })();

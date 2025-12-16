@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import time
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 
 from fastapi import FastAPI, Body
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -24,6 +25,7 @@ REFRESH_MINUTES = int(os.environ.get("REFRESH_MINUTES", "30"))
 TRAKT_CLIENT_ID = os.environ.get("TRAKT_CLIENT_ID", "").strip()
 TRAKT_CLIENT_SECRET = os.environ.get("TRAKT_CLIENT_SECRET", "").strip()
 TRAKT_STATE_PATH = os.environ.get("TRAKT_STATE_PATH", "trakt_accounts.json")
+JELLYFIN_STATE_PATH = os.environ.get("JELLYFIN_STATE_PATH", "jellyfin_state.json")
 
 if not (JELLYFIN_URL and JELLYFIN_APIKEY):
     raise RuntimeError("Missing required env vars: JELLYFIN_URL, JELLYFIN_APIKEY")
@@ -37,6 +39,67 @@ app = FastAPI(title="Trakt Multi-Scrobbler")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 logger = logging.getLogger("trakt-multi-scrobbler")
+
+selected_jellyfin_users: Set[str] = set()
+jellyfin_selection_initialized = False
+
+
+def _load_jellyfin_state() -> None:
+    """Load persisted Jellyfin user selection for scrobbling."""
+    global selected_jellyfin_users, jellyfin_selection_initialized
+    if os.path.isdir(JELLYFIN_STATE_PATH):
+        logger.warning("Jellyfin: state path %s is a directory; skipping load", JELLYFIN_STATE_PATH)
+        selected_jellyfin_users = set()
+        jellyfin_selection_initialized = False
+        return
+    if not os.path.exists(JELLYFIN_STATE_PATH):
+        selected_jellyfin_users = set()
+        jellyfin_selection_initialized = False
+        return
+    try:
+        with open(JELLYFIN_STATE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        selected = data.get("selected_users") or []
+        selected_jellyfin_users = {str(u) for u in selected if str(u)}
+        jellyfin_selection_initialized = bool(data.get("initialized", False))
+    except Exception:
+        logger.warning("Jellyfin: failed to read state file %s", JELLYFIN_STATE_PATH, exc_info=True)
+        selected_jellyfin_users = set()
+        jellyfin_selection_initialized = False
+
+
+def _save_jellyfin_state() -> None:
+    try:
+        os.makedirs(os.path.dirname(JELLYFIN_STATE_PATH) or ".", exist_ok=True)
+        with open(JELLYFIN_STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump(
+                {"selected_users": sorted(selected_jellyfin_users), "initialized": jellyfin_selection_initialized},
+                f,
+                indent=2,
+            )
+    except Exception:
+        logger.warning("Jellyfin: failed to write state file %s", JELLYFIN_STATE_PATH, exc_info=True)
+
+
+def _ensure_selection_initialized() -> None:
+    """On first toggle, treat all current users as selected."""
+    global jellyfin_selection_initialized, selected_jellyfin_users
+    if jellyfin_selection_initialized:
+        return
+    selected_jellyfin_users = set(cache.users.keys())
+    jellyfin_selection_initialized = True
+    _save_jellyfin_state()
+
+
+def _is_user_selected(user_id: str) -> bool:
+    if not user_id:
+        return False
+    if not jellyfin_selection_initialized:
+        return True
+    return user_id in selected_jellyfin_users
+
+
+_load_jellyfin_state()
 
 
 def _provider_key(provider: str, ident: str) -> str:
@@ -85,7 +148,9 @@ def _record_history(user_id: str, event: Dict[str, Any]) -> None:
 
 def _gather_completed_events() -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
-    for evs in cache.user_history.values():
+    for user_id, evs in cache.user_history.items():
+        if not _is_user_selected(user_id):
+            continue
         for ev in evs:
             if not ev.get("completed") or not ev.get("date"):
                 continue
@@ -196,6 +261,12 @@ async def refresh_cache(force: bool = False) -> None:
 
     cache.last_refresh_ts = time.time()
 
+    if jellyfin_selection_initialized:
+        removed = {uid for uid in selected_jellyfin_users if uid not in cache.users}
+        if removed:
+            selected_jellyfin_users.difference_update(removed)
+            _save_jellyfin_state()
+
     # Prune Trakt per-item rules that refer to removed content.
     if trakt_service:
         valid_keys: set[str] = set()
@@ -243,9 +314,10 @@ async def index():
 @app.get("/api/summary")
 async def summary():
     await refresh_cache(force=False)
+    selected_count = len([uid for uid in cache.users.keys() if _is_user_selected(uid)])
     return JSONResponse(
         {
-            "users": len(cache.users.keys()),
+            "users": selected_count,
             "lastRefresh": cache.last_refresh_ts,
             "traktConfigured": bool(trakt_service and trakt_service.ready),
         }
@@ -356,7 +428,34 @@ async def api_users():
     await refresh_cache(force=False)
     return JSONResponse(
         {
-            "users": [{"user_id": uid, "name": name} for uid, name in cache.users.items()],
+            "users": [{"user_id": uid, "name": name, "enabled": _is_user_selected(uid)} for uid, name in cache.users.items()],
+            "initialized": jellyfin_selection_initialized,
+        }
+    )
+
+
+@app.post("/api/users/toggle")
+async def api_toggle_user(payload: Dict[str, Any] = Body(...)):
+    """Enable/disable a Jellyfin user as a scrobble source."""
+    await refresh_cache(force=False)
+    user_id = str(payload.get("user_id") or payload.get("userId") or "").strip()
+    enabled = bool(payload.get("enabled", True))
+    if not user_id:
+        return JSONResponse({"ok": False, "error": "missing_user_id"}, status_code=400)
+    if user_id not in cache.users:
+        return JSONResponse({"ok": False, "error": "unknown_user"}, status_code=404)
+    _ensure_selection_initialized()
+    if enabled:
+        selected_jellyfin_users.add(user_id)
+    else:
+        selected_jellyfin_users.discard(user_id)
+    _save_jellyfin_state()
+    return JSONResponse(
+        {
+            "ok": True,
+            "enabled": enabled,
+            "selected": list(selected_jellyfin_users),
+            "initialized": jellyfin_selection_initialized,
         }
     )
 
