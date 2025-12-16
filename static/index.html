@@ -69,6 +69,7 @@
                     <button id="filterAll" class="pill">All</button>
                     <button id="filterMovies" class="pill">Movies</button>
                     <button id="filterShows" class="pill">Shows</button>
+                    <button id="filterUnassigned" class="pill">Unassigned</button>
                 </div>
             </div>
             <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
@@ -176,6 +177,7 @@
             document.getElementById('filterAll').textContent = t('filter.all');
             document.getElementById('filterMovies').textContent = t('filter.movies');
             document.getElementById('filterShows').textContent = t('filter.shows');
+            document.getElementById('filterUnassigned').textContent = t('filter.unassigned');
             document.getElementById('btnSelectAll').textContent = t('bulk.select');
             document.getElementById('btnDeselectAll').textContent = t('bulk.deselect');
             renderAlphaBar();
@@ -281,7 +283,17 @@
                 return;
             }
             const filtered = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
-                .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')))
+                .filter(i => {
+                    if (contentFilter === 'all') return true;
+                    if (contentFilter === 'movies') return i.type === 'movie';
+                    if (contentFilter === 'shows') return i.type === 'show';
+                    if (contentFilter === 'unassigned') {
+                        const accs = i.accounts || [];
+                        if (!accs.length) return false;
+                        return accs.every(a => !a.ruleEnabled);
+                    }
+                    return true;
+                })
                 .filter(i => {
                     if (!alphaFilter) return true;
                     const title = (i.title || '').trim();
@@ -532,6 +544,7 @@
         document.getElementById('filterAll').addEventListener('click', () => { contentFilter = 'all'; renderContentList(); });
         document.getElementById('filterMovies').addEventListener('click', () => { contentFilter = 'movies'; renderContentList(); });
         document.getElementById('filterShows').addEventListener('click', () => { contentFilter = 'shows'; renderContentList(); });
+        document.getElementById('filterUnassigned').addEventListener('click', () => { contentFilter = 'unassigned'; renderContentList(); });
 
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';

@@ -17,6 +17,7 @@
   "filter.all": "Tutti",
   "filter.movies": "Film",
   "filter.shows": "Serie",
+  "filter.unassigned": "Non assegnati",
   "panel.traktTitle": "Account Trakt",
   "panel.traktHelper": "Attiva o disattiva gli utenti Trakt che riceveranno gli eventi da Jellyfin.",
   "panel.contentTitle": "Filtri contenuti",
