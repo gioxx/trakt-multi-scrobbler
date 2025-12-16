@@ -396,6 +396,12 @@
                     return first === alphaFilter;
                 });
             if (!targets.length) return;
+            // Optimistic update locally
+            targets.forEach(it => {
+                it.accounts = (it.accounts || []).map(acc => acc.username === account ? { ...acc, ruleEnabled: enable } : acc);
+            });
+            renderOrphans();
+            renderContentList();
             await Promise.all(targets.map(it => fetch('/api/trakt/items/set', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
