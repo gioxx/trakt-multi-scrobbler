@@ -319,7 +319,17 @@
             if (!account) return;
             const q = (document.getElementById('search').value || '').toLowerCase().trim();
             const targets = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
-                .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')));
+                .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')))
+                .filter(i => {
+                    if (!alphaFilter) return true;
+                    const title = (i.title || '').trim();
+                    if (!title) return false;
+                    const first = title[0].toUpperCase();
+                    if (alphaFilter === '#') {
+                        return first >= '0' && first <= '9';
+                    }
+                    return first === alphaFilter;
+                });
             if (!targets.length) return;
             for (const it of targets) {
                 await fetch('/api/trakt/items/set', {
