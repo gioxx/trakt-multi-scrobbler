@@ -377,7 +377,7 @@ class TraktService:
             access_token=access_token,
             refresh_token=refresh_token,
             expires_at=expires_at,
-            enabled=True,
+            enabled=False,  # start disabled until user enables + sets filters
         )
         self.accounts[username] = acc
         self._save_state()

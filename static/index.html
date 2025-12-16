@@ -70,6 +70,7 @@
                     <button id="btnDeselectAll">Deselect all</button>
                 </div>
             </div>
+            <div class="row" id="alphaBar" style="flex-wrap:wrap; gap:6px;"></div>
             <div id="grid" class="grid"></div>
         </section>
     </main>
@@ -106,6 +107,7 @@
         let lastPollError = false;
         let contentItems = [];
         let contentFilter = 'all';
+        let alphaFilter = '';
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -116,6 +118,23 @@
         function t(key, vars = {}) {
             const base = translations[key] || translations[key.replace(/:[^.]*/, '')] || key;
             return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`{${k}}`, 'g'), vars[k]), base);
+        }
+
+        function renderAlphaBar() {
+            const bar = document.getElementById('alphaBar');
+            const letters = ['#'].concat('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
+            bar.innerHTML = letters.map(l => {
+                const active = alphaFilter === l ? 'active' : '';
+                return `<button class="pill ${active}" data-letter="${l}">${l}</button>`;
+            }).join('');
+            bar.querySelectorAll('button[data-letter]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const val = btn.getAttribute('data-letter');
+                    alphaFilter = alphaFilter === val ? '' : val;
+                    renderAlphaBar();
+                    renderContentList();
+                });
+            });
         }
 
         async function loadLang(lang) {
@@ -148,6 +167,7 @@
             document.getElementById('filterShows').textContent = t('filter.shows');
             document.getElementById('btnSelectAll').textContent = t('bulk.select');
             document.getElementById('btnDeselectAll').textContent = t('bulk.deselect');
+            renderAlphaBar();
             document.getElementById('deviceTitle').textContent = t('modal.deviceTitle');
             document.getElementById('btnCloseDevice').textContent = t('modal.close');
             document.getElementById('btnCancelDevice').textContent = t('modal.cancel');
@@ -242,12 +262,23 @@
                 return;
             }
             const filtered = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
-                .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')));
+                .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')))
+                .filter(i => {
+                    if (!alphaFilter) return true;
+                    const title = (i.title || '').trim();
+                    if (!title) return false;
+                    const first = title[0].toUpperCase();
+                    if (alphaFilter === '#') {
+                        return first >= '0' && first <= '9';
+                    }
+                    return first === alphaFilter;
+                });
             list.innerHTML = filtered.map(it => {
                 const accountsHtml = (it.accounts || []).map(acc => {
                     const checked = acc.enabled ? 'checked' : '';
+                    const disabled = acc.accountEnabled ? '' : 'disabled';
                     return `<label style="display:flex; align-items:center; gap:6px;">
-                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" ${checked} />
+                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" ${checked} ${disabled}/>
                       <span class="muted">${escapeHtml(acc.username)}</span>
                     </label>`;
                 }).join('');
@@ -290,6 +321,7 @@
             const q = (document.getElementById('search').value || '').toLowerCase().trim();
             const targets = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
                 .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')));
+            if (!targets.length) return;
             for (const it of targets) {
                 await fetch('/api/trakt/items/set', {
                     method: 'POST',
