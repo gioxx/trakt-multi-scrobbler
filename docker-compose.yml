@@ -9,8 +9,12 @@ services:
       - JELLYFIN_APIKEY=YOUR_JELLYFIN_API_KEY
       - TRAKT_CLIENT_ID=YOUR_TRAKT_CLIENT_ID
       - TRAKT_CLIENT_SECRET=YOUR_TRAKT_CLIENT_SECRET
+      - TRAKT_STATE_PATH=/data/trakt_accounts.json
       - WATCH_THRESHOLD=0.95
       - REFRESH_MINUTES=30
     volumes:
-      - ./trakt_accounts.json:/app/trakt_accounts.json
+      - data:/data
     restart: unless-stopped
+
+volumes:
+  data:

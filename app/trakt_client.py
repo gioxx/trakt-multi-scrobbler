@@ -73,6 +73,7 @@ class TraktService:
         self.accounts: Dict[str, TraktAccount] = {}
         self.last_synced: Dict[str, float] = {}
         self._load_state()
+        self._ensure_state_file()
 
     @property
     def ready(self) -> bool:
@@ -80,6 +81,9 @@ class TraktService:
 
     def _load_state(self) -> None:
         if not os.path.exists(self.state_path):
+            return
+        if os.path.isdir(self.state_path):
+            logger.warning("Trakt: state path %s is a directory; skipping load", self.state_path)
             return
         try:
             with open(self.state_path, "r", encoding="utf-8") as f:
@@ -95,6 +99,7 @@ class TraktService:
         self.last_synced = {str(k): float(v) for k, v in (data.get("last_synced") or {}).items()}
 
     def _save_state(self) -> None:
+        os.makedirs(os.path.dirname(self.state_path) or ".", exist_ok=True)
         data = {
             "accounts": [acc.to_dict() for acc in self.accounts.values()],
             "last_synced": self.last_synced,
@@ -104,6 +109,15 @@ class TraktService:
                 json.dump(data, f, indent=2)
         except Exception:
             logger.warning("Trakt: failed to write state file %s", self.state_path, exc_info=True)
+
+    def _ensure_state_file(self) -> None:
+        if os.path.isdir(self.state_path):
+            return
+        if not os.path.exists(self.state_path):
+            try:
+                self._save_state()
+            except Exception:
+                logger.warning("Trakt: cannot create state file %s", self.state_path, exc_info=True)
 
     def list_accounts(self) -> List[Dict[str, object]]:
         return [

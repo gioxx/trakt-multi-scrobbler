@@ -84,7 +84,8 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    ```bash
    docker compose up --build
    ```
-   Assicurati di montare `trakt_accounts.json` nel container (vedi `docker-compose.yml` già pronto).
+   - Usa il volume nominato già previsto in `docker-compose.yml`: i dati vivono in `data/trakt_accounts.json` dentro il container.
+   - Se vuoi inizializzarlo a mano: `docker compose run --rm trakt-multi-scrobbler sh -c 'cat > /data/trakt_accounts.json <<EOF\n{ \"accounts\": [], \"last_synced\": {} }\nEOF'`
 
 ### Posso ottenere i token Trakt via pagina web?
 Sì. La UI integra il device flow Trakt: “Add Trakt account” mostra il codice e il link di verifica, poi salva i token nel JSON una volta approvato. In alternativa puoi usare i comandi `curl` indicati sopra.
