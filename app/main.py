@@ -157,11 +157,14 @@ async def refresh_cache(force: bool = False) -> None:
                 series_thumb_url = _jellyfin_thumb(show_id, series_primary_tag)
 
             provider_key = _provider_key_from_ids(it.get("ProviderIds", {}))
-            if provider_key:
-                cache.catalog.setdefault(provider_key, {
+            group_key = item_id if typ == "movie" else show_id
+            catalog_key = group_key or provider_key
+            if catalog_key:
+                cache.catalog.setdefault(catalog_key, {
+                    "groupKey": group_key,
                     "providerKey": provider_key,
-                    "type": typ,
-                    "title": it.get("SeriesName") if typ == "episode" else it.get("Name"),
+                    "type": "movie" if typ == "movie" else "show",
+                    "title": it.get("Name") if typ == "movie" else (it.get("SeriesName") or ""),
                     "year": str(it.get("ProductionYear") or ""),
                 })
 
@@ -186,6 +189,7 @@ async def refresh_cache(force: bool = False) -> None:
                 "jellyfinId": item_id,
                 "seriesThumb": series_thumb_url or thumb_url,
                 "thumb": thumb_url,
+                "groupKey": group_key,
             }
             _record_history(juid, event)
 
@@ -292,11 +296,12 @@ async def api_trakt_items():
     resp: List[Dict[str, Any]] = []
     for it in items:
         pk = it.get("providerKey") or ""
-        if not pk:
+        gk = it.get("groupKey") or ""
+        if not (pk or gk):
             continue
         entry = dict(it)
         entry["accounts"] = [
-            {"username": u, "enabled": trakt_service.item_allowed(u, pk) if trakt_service else False}
+            {"username": u, "enabled": trakt_service.item_allowed(u, pk, gk) if trakt_service else False}
             for u in accounts
         ]
         resp.append(entry)
@@ -308,11 +313,12 @@ async def api_trakt_items_set(payload: Dict[str, Any] = Body(...)):
     if not trakt_service or not trakt_service.ready:
         return JSONResponse({"ok": False, "error": "trakt_not_configured"}, status_code=400)
     pk = str(payload.get("providerKey") or "").strip()
+    gk = str(payload.get("groupKey") or "").strip()
     username = str(payload.get("username") or "").strip()
     enabled = bool(payload.get("enabled", True))
-    if not pk or not username:
+    if not (pk or gk) or not username:
         return JSONResponse({"ok": False, "error": "missing_params"}, status_code=400)
-    ok = trakt_service.set_item_rule(username, pk, enabled)
+    ok = trakt_service.set_item_rule(username, pk or gk, enabled)
     return JSONResponse({"ok": ok})
 
 

@@ -204,7 +204,7 @@
                 const accountsHtml = (it.accounts || []).map(acc => {
                     const checked = acc.enabled ? 'checked' : '';
                     return `<label style="display:flex; align-items:center; gap:6px;">
-                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey)}" ${checked} />
+                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" ${checked} />
                       <span class="muted">${escapeHtml(acc.username)}</span>
                     </label>`;
                 }).join('');
@@ -223,10 +223,11 @@
                 cb.addEventListener('change', async (e) => {
                     const username = e.target.getAttribute('data-username');
                     const pk = e.target.getAttribute('data-provider-key');
+                    const gk = e.target.getAttribute('data-group-key');
                     await fetch('/api/trakt/items/set', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, providerKey: pk, enabled: e.target.checked })
+                        body: JSON.stringify({ username, providerKey: pk, groupKey: gk, enabled: e.target.checked })
                     });
                 });
             });

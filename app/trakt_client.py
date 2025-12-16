@@ -72,7 +72,7 @@ class TraktService:
         self.state_path = state_path
         self.accounts: Dict[str, TraktAccount] = {}
         self.last_synced: Dict[str, float] = {}
-        # account_items: username -> providerKey -> enabled(bool). Missing means allowed by default.
+        # account_items: username -> key -> enabled(bool). Missing means allowed by default.
         self.account_items: Dict[str, Dict[str, bool]] = {}
         self._load_state()
         self._ensure_state_file()
@@ -142,22 +142,24 @@ class TraktService:
         self._save_state()
         return True
 
-    def set_item_rule(self, username: str, provider_key: str, enabled: bool) -> bool:
-        if not username or not provider_key:
+    def set_item_rule(self, username: str, key: str, enabled: bool) -> bool:
+        if not username or not key:
             return False
         if username not in self.accounts:
             return False
         rules = self.account_items.setdefault(username, {})
-        rules[provider_key] = bool(enabled)
+        rules[key] = bool(enabled)
         self._save_state()
         return True
 
-    def item_allowed(self, username: str, provider_key: str) -> bool:
-        if not provider_key:
+    def item_allowed(self, username: str, provider_key: str, group_key: str = "") -> bool:
+        if not provider_key and not group_key:
             return False
         rules = self.account_items.get(username) or {}
         if provider_key in rules:
             return bool(rules[provider_key])
+        if group_key and group_key in rules:
+            return bool(rules[group_key])
         return True  # default allow
 
     async def _refresh_token(self, acc: TraktAccount) -> bool:
@@ -251,7 +253,7 @@ class TraktService:
                 ids = _trakt_ids(str(ev.get("providerKey") or ""))
                 if not ids:
                     continue
-                if not self.item_allowed(username, str(ev.get("providerKey") or "")):
+                if not self.item_allowed(username, str(ev.get("providerKey") or ""), str(ev.get("groupKey") or "")):
                     continue
                 record = {"ids": ids, "watched_at": _iso(ts)}
                 typ = str(ev.get("type") or "").lower()
