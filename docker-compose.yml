@@ -1,0 +1,16 @@
+services:
+  trakt-multi-scrobbler:
+    build: .
+    container_name: trakt-multi-scrobbler
+    ports:
+      - "8089:8089"
+    environment:
+      - JELLYFIN_URL=http://JELLYFIN_IP:8096
+      - JELLYFIN_APIKEY=YOUR_JELLYFIN_API_KEY
+      - TRAKT_CLIENT_ID=YOUR_TRAKT_CLIENT_ID
+      - TRAKT_CLIENT_SECRET=YOUR_TRAKT_CLIENT_SECRET
+      - WATCH_THRESHOLD=0.95
+      - REFRESH_MINUTES=30
+    volumes:
+      - ./trakt_accounts.json:/app/trakt_accounts.json
+    restart: unless-stopped

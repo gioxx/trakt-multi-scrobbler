@@ -1,0 +1,239 @@
+import json
+import logging
+import os
+import time
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Tuple
+
+import httpx
+
+
+logger = logging.getLogger("trakt")
+
+
+def _now() -> float:
+    return time.time()
+
+
+def _iso(ts: float) -> str:
+    try:
+        return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+    except Exception:
+        return datetime.now(tz=timezone.utc).isoformat()
+
+
+def _trakt_ids(provider_key: str) -> Dict[str, str]:
+    """Convert a providerKey string like 'tmdb:123' to a Trakt ids dict."""
+    if not provider_key or ":" not in provider_key:
+        return {}
+    provider, ident = provider_key.split(":", 1)
+    provider = provider.strip().lower()
+    ident = ident.strip()
+    if not provider or not ident:
+        return {}
+    if provider in ("tmdb", "imdb", "tvdb"):
+        return {provider: ident}
+    return {}
+
+
+@dataclass
+class TraktAccount:
+    username: str
+    access_token: str
+    refresh_token: str
+    expires_at: float
+    enabled: bool = True
+
+    def to_dict(self) -> Dict[str, object]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, object]) -> "TraktAccount":
+        return cls(
+            username=str(data.get("username") or "").strip(),
+            access_token=str(data.get("access_token") or "").strip(),
+            refresh_token=str(data.get("refresh_token") or "").strip(),
+            expires_at=float(data.get("expires_at") or 0.0),
+            enabled=bool(data.get("enabled", True)),
+        )
+
+    def is_expired(self) -> bool:
+        # Refresh slightly before expiration to be safe.
+        return _now() > (self.expires_at - 60)
+
+
+class TraktService:
+    """Thin wrapper around Trakt's API for history sync."""
+
+    def __init__(self, client_id: str, client_secret: str, state_path: str = "trakt_accounts.json") -> None:
+        self.client_id = client_id.strip()
+        self.client_secret = client_secret.strip()
+        self.state_path = state_path
+        self.accounts: Dict[str, TraktAccount] = {}
+        self.last_synced: Dict[str, float] = {}
+        self._load_state()
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.client_id and self.client_secret and self.accounts)
+
+    def _load_state(self) -> None:
+        if not os.path.exists(self.state_path):
+            return
+        try:
+            with open(self.state_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            logger.warning("Trakt: failed to read state file %s", self.state_path, exc_info=True)
+            return
+        accs = data.get("accounts") or []
+        for a in accs:
+            acc = TraktAccount.from_dict(a or {})
+            if acc.username:
+                self.accounts[acc.username] = acc
+        self.last_synced = {str(k): float(v) for k, v in (data.get("last_synced") or {}).items()}
+
+    def _save_state(self) -> None:
+        data = {
+            "accounts": [acc.to_dict() for acc in self.accounts.values()],
+            "last_synced": self.last_synced,
+        }
+        try:
+            with open(self.state_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            logger.warning("Trakt: failed to write state file %s", self.state_path, exc_info=True)
+
+    def list_accounts(self) -> List[Dict[str, object]]:
+        return [
+            {
+                "username": acc.username,
+                "enabled": acc.enabled,
+                "expires_at": acc.expires_at,
+                "last_synced_at": self.last_synced.get(acc.username, 0.0),
+            }
+            for acc in self.accounts.values()
+        ]
+
+    def set_enabled(self, username: str, enabled: bool) -> bool:
+        acc = self.accounts.get(username)
+        if not acc:
+            return False
+        acc.enabled = bool(enabled)
+        self._save_state()
+        return True
+
+    async def _refresh_token(self, acc: TraktAccount) -> bool:
+        if not acc.refresh_token or not self.client_id or not self.client_secret:
+            return False
+        payload = {
+            "refresh_token": acc.refresh_token,
+            "grant_type": "refresh_token",
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post("https://api.trakt.tv/oauth/token", json=payload)
+                r.raise_for_status()
+                data = r.json()
+        except Exception:
+            logger.warning("Trakt: failed to refresh token for %s", acc.username, exc_info=True)
+            return False
+
+        acc.access_token = data.get("access_token") or acc.access_token
+        acc.refresh_token = data.get("refresh_token") or acc.refresh_token
+        expires_in = float(data.get("expires_in") or 0)
+        acc.expires_at = _now() + expires_in
+        self._save_state()
+        logger.info("Trakt: refreshed token for %s", acc.username)
+        return True
+
+    async def _authorized_client(self, acc: TraktAccount) -> Optional[httpx.AsyncClient]:
+        if acc.is_expired():
+            ok = await self._refresh_token(acc)
+            if not ok:
+                return None
+        headers = {
+            "Authorization": f"Bearer {acc.access_token}",
+            "trakt-api-version": "2",
+            "trakt-api-key": self.client_id,
+            "Content-Type": "application/json",
+        }
+        return httpx.AsyncClient(timeout=30.0, headers=headers)
+
+    async def _post_history(self, acc: TraktAccount, payload: Dict[str, object]) -> Tuple[bool, Dict[str, object]]:
+        if not payload:
+            return True, {"added": {}}
+        client = await self._authorized_client(acc)
+        if client is None:
+            return False, {"error": "auth_failed"}
+        try:
+            async with client as c:
+                r = await c.post("https://api.trakt.tv/sync/history", json=payload)
+                if r.status_code == 401:
+                    # Try once more after refresh.
+                    refreshed = await self._refresh_token(acc)
+                    if not refreshed:
+                        return False, {"error": "unauthorized"}
+                    return await self._post_history(acc, payload)
+                r.raise_for_status()
+                return True, r.json()
+        except Exception:
+            logger.warning("Trakt: failed to sync history for %s", acc.username, exc_info=True)
+            return False, {"error": "exception"}
+
+    async def sync_events(self, events: List[Dict[str, object]]) -> Dict[str, object]:
+        """Sync completed Jellyfin events to all enabled Trakt accounts.
+
+        Events must include:
+        - type: movie|episode
+        - providerKey: provider:id (tmdb/imdb/tvdb)
+        - date: unix timestamp
+        """
+        if not self.ready:
+            return {"ok": False, "error": "trakt_not_configured"}
+
+        events_sorted = sorted(events or [], key=lambda e: float(e.get("date") or 0.0))
+        results: Dict[str, object] = {}
+
+        for username, acc in self.accounts.items():
+            if not acc.enabled:
+                results[username] = {"skipped": True, "reason": "disabled"}
+                continue
+
+            last = self.last_synced.get(username, 0.0)
+            movies: List[Dict[str, object]] = []
+            episodes: List[Dict[str, object]] = []
+            max_ts_sent = 0.0
+            for ev in events_sorted:
+                ts = float(ev.get("date") or 0.0)
+                if ts <= last or not ev.get("completed"):
+                    continue
+                ids = _trakt_ids(str(ev.get("providerKey") or ""))
+                if not ids:
+                    continue
+                record = {"ids": ids, "watched_at": _iso(ts)}
+                typ = str(ev.get("type") or "").lower()
+                if typ == "movie":
+                    movies.append(record)
+                    max_ts_sent = max(max_ts_sent, ts)
+                elif typ == "episode":
+                    episodes.append(record)
+                    max_ts_sent = max(max_ts_sent, ts)
+            payload: Dict[str, object] = {}
+            if movies:
+                payload["movies"] = movies
+            if episodes:
+                payload["episodes"] = episodes
+            ok, body = await self._post_history(acc, payload)
+            if ok:
+                if movies or episodes:
+                    self.last_synced[username] = max_ts_sent or last
+                    self._save_state()
+                results[username] = {"ok": True, "sent": {"movies": len(movies), "episodes": len(episodes)}, "response": body}
+            else:
+                results[username] = {"ok": False, "payload": payload, "response": body}
+        return {"ok": True, "results": results}

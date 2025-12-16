@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Trakt Multi-Scrobbler</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body>
+    <header>
+        <div class="brand" style="display:flex; align-items:center; gap:8px;">
+            <img src="/static/favicon.svg" alt="" width="44" height="44" aria-hidden="true" />
+            <div>
+                <div id="brandTitle" style="font-size:18px;">Trakt Multi-Scrobbler</div>
+                <div id="brandSubtitle" class="muted" style="font-size:12px;">Jellyfin → Trakt per più utenti</div>
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <select id="langSelect" class="pill" style="cursor:pointer; background:#0f1320; color:#e9eef5; border-radius:12px;">
+                <option value="en">🌐 English</option>
+                <option value="it">🌐 Italiano</option>
+            </select>
+            <button id="btnRefresh" class="pill" style="cursor:pointer;">↻</button>
+            <button id="btnSync" class="pill" style="cursor:pointer;">⇅</button>
+            <div id="summary" class="pill">ℹ️ Loading…</div>
+        </div>
+    </header>
+
+    <main>
+        <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
+            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
+                <div>
+                    <div id="traktTitle" style="font-weight:700; font-size:17px;">Trakt accounts</div>
+                    <div id="traktHelper" class="muted">Attiva o disattiva lo scrobbling per ciascun account collegato.</div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button id="btnReloadTrakt">Reload accounts</button>
+                </div>
+            </div>
+            <div id="traktNotice" class="muted" style="margin-bottom:10px; display:none;"></div>
+            <div id="traktAccounts" class="grid"></div>
+        </section>
+
+        <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; background:#0f1320;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                <div>
+                    <div id="historyTitle" style="font-weight:700; font-size:17px;">Jellyfin history</div>
+                    <div id="historyHelper" class="muted">Scegli un utente Jellyfin e guarda cosa ha visto.</div>
+                </div>
+            </div>
+            <div class="row">
+                <select id="historyUser" style="min-width:240px;"></select>
+                <input id="search" placeholder="Filter…" />
+            </div>
+            <div id="grid" class="grid"></div>
+        </section>
+    </main>
+
+    <script>
+        let translations = {};
+        let currentLang = 'en';
+        let allUsers = [];
+        let historyItems = [];
+        let traktAccounts = [];
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function t(key, vars = {}) {
+            const base = translations[key] || translations[key.replace(/:[^.]*/, '')] || key;
+            return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`{${k}}`, 'g'), vars[k]), base);
+        }
+
+        async function loadLang(lang) {
+            currentLang = lang;
+            try {
+                const r = await fetch(`/static/locales/${lang}.json`);
+                translations = await r.json();
+            } catch (e) {
+                translations = {};
+            }
+            localStorage.setItem('lang', lang);
+            applyStaticText();
+        }
+
+        function applyStaticText() {
+            document.title = t('title');
+            document.getElementById('brandTitle').textContent = t('title');
+            document.getElementById('brandSubtitle').textContent = t('subtitle');
+            document.getElementById('btnRefresh').textContent = t('button.refresh');
+            document.getElementById('btnSync').textContent = t('button.sync');
+            document.getElementById('traktTitle').textContent = t('panel.traktTitle');
+            document.getElementById('traktHelper').textContent = t('panel.traktHelper');
+            document.getElementById('btnReloadTrakt').textContent = t('button.reloadAccounts');
+            document.getElementById('historyTitle').textContent = t('panel.historyTitle');
+            document.getElementById('historyHelper').textContent = t('history.helper');
+            document.getElementById('search').placeholder = t('search.placeholder');
+
+            document.getElementById('langSelect').value = currentLang;
+            document.querySelectorAll('#langSelect option').forEach(opt => {
+                if (opt.value === 'en') opt.textContent = `${t('header.langIcon')} English`;
+                if (opt.value === 'it') opt.textContent = `${t('header.langIcon')} Italiano`;
+            });
+        }
+
+        function historyHTML(it) {
+            const date = it.date ? new Date(it.date * 1000).toLocaleString() : '—';
+            const thumb = it.seriesThumb || it.thumb || '';
+            const isEpisode = !!it.seriesName;
+            const code = (it.seasonIndex != null && it.episodeIndex != null)
+                ? `S${String(it.seasonIndex).padStart(2, '0')}E${String(it.episodeIndex).padStart(2, '0')}`
+                : '';
+            const episodeLine = isEpisode
+                ? [it.seasonName, code, it.title].filter(Boolean).map(escapeHtml).join(' · ')
+                : '';
+            return `
+        <div class="card">
+          <div class="poster">
+            ${thumb ? `<img src="${thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`}
+          </div>
+          <div class="meta">
+            <div class="title">${isEpisode ? escapeHtml(it.seriesName || '') : escapeHtml(it.title || '')}</div>
+            <div class="muted">${episodeLine ? `${episodeLine} · ` : ''}${t('label.viewed')}: ${escapeHtml(date)}</div>
+          </div>
+        </div>
+      `;
+        }
+
+        function renderHistory() {
+            const q = (document.getElementById('search').value || '').trim().toLowerCase();
+            const filtered = q ? historyItems.filter(i => (i.title || '').toLowerCase().includes(q) || (i.seriesName || '').toLowerCase().includes(q)) : historyItems;
+            const grid = document.getElementById('grid');
+            if (!filtered.length) {
+                grid.innerHTML = `<div class="muted">${t('history.noItems')}</div>`;
+                grid.classList.remove('grid');
+                return;
+            }
+            grid.classList.add('grid');
+            grid.innerHTML = filtered.map(historyHTML).join('');
+        }
+
+        async function loadHistory() {
+            const userId = document.getElementById('historyUser').value;
+            if (!userId) {
+                historyItems = [];
+                renderHistory();
+                return;
+            }
+            const r = await fetch(`/api/user/${encodeURIComponent(userId)}/history`);
+            const data = await r.json();
+            historyItems = (data.items || []).sort((a, b) => (b.date || 0) - (a.date || 0));
+            renderHistory();
+        }
+
+        async function loadUsers() {
+            const r = await fetch('/api/users');
+            const data = await r.json();
+            allUsers = (data.users || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            const select = document.getElementById('historyUser');
+            const prev = select.value;
+            select.innerHTML = allUsers.map(u => `<option value="${u.user_id}">${escapeHtml(u.name)} (${escapeHtml(u.user_id)})</option>`).join('');
+            if (prev && allUsers.some(u => u.user_id === prev)) {
+                select.value = prev;
+            }
+            await loadHistory();
+        }
+
+        function renderTraktAccounts(configured) {
+            const container = document.getElementById('traktAccounts');
+            const notice = document.getElementById('traktNotice');
+            if (!configured) {
+                notice.style.display = 'block';
+                notice.textContent = t('label.traktNotConfigured');
+                container.innerHTML = '';
+                return;
+            }
+            notice.style.display = 'none';
+            if (!traktAccounts.length) {
+                container.innerHTML = `<div class="muted">${t('label.noTraktAccounts')}</div>`;
+                return;
+            }
+            container.innerHTML = traktAccounts.map(acc => {
+                const last = acc.last_synced_at ? new Date(acc.last_synced_at * 1000).toLocaleString() : t('label.never');
+                const badge = acc.enabled ? t('label.enabled') : t('label.disabled');
+                const checked = acc.enabled ? 'checked' : '';
+                return `
+        <label class="card" style="align-items:center; padding:10px;">
+          <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+            <div class="title">${escapeHtml(acc.username)}</div>
+            <div class="muted">${t('label.lastSynced', {date: last})}</div>
+            <div class="muted">${t('label.traktStatus', {status: badge})}</div>
+          </div>
+          <input type="checkbox" data-username="${escapeHtml(acc.username)}" ${checked} style="width:22px; height:22px; cursor:pointer;" />
+        </label>
+      `;
+            }).join('');
+
+            container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', async (e) => {
+                    const username = e.target.getAttribute('data-username');
+                    await fetch('/api/trakt/accounts/toggle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, enabled: e.target.checked })
+                    });
+                });
+            });
+        }
+
+        async function loadTraktAccounts() {
+            const r = await fetch('/api/trakt/accounts');
+            const data = await r.json();
+            traktAccounts = data.accounts || [];
+            renderTraktAccounts(!!data.configured);
+        }
+
+        async function triggerSync() {
+            const btn = document.getElementById('btnSync');
+            btn.disabled = true;
+            btn.textContent = t('button.syncing');
+            try {
+                const r = await fetch('/api/trakt/sync', { method: 'POST' });
+                const data = await r.json();
+                const msg = JSON.stringify(data, null, 2);
+                alert(t('label.syncResult') + '\n' + msg);
+            } catch (e) {
+                alert('Failed to sync.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = t('button.sync');
+                await loadTraktAccounts();
+            }
+        }
+
+        async function loadSummary() {
+            const r = await fetch('/api/summary');
+            const s = await r.json();
+            const date = s.lastRefresh ? new Date(s.lastRefresh * 1000).toLocaleString() : '—';
+            const trakt = s.traktConfigured ? t('label.traktOn') : t('label.traktOff');
+            document.getElementById('summary').textContent = `${t('header.summaryIcon')} ${t('summary.template', { users: s.users, date, trakt })}`;
+        }
+
+        document.getElementById('btnRefresh').addEventListener('click', async () => {
+            await fetch('/api/refresh', { method: 'POST' });
+            await loadSummary();
+            await loadHistory();
+        });
+
+        document.getElementById('btnSync').addEventListener('click', triggerSync);
+        document.getElementById('btnReloadTrakt').addEventListener('click', loadTraktAccounts);
+        document.getElementById('search').addEventListener('input', renderHistory);
+        document.getElementById('historyUser').addEventListener('change', loadHistory);
+        document.getElementById('langSelect').addEventListener('change', async (e) => {
+            await loadLang(e.target.value);
+            await loadSummary();
+            await loadTraktAccounts();
+            await loadHistory();
+        });
+
+        (async () => {
+            const storedLang = localStorage.getItem('lang') || 'en';
+            await loadLang(storedLang);
+            await loadSummary();
+            await loadTraktAccounts();
+            await loadUsers();
+        })();
+    </script>
+</body>
+
+</html>
