@@ -334,6 +334,36 @@
             renderContentList();
         }
 
+        function renderOrphans() {
+            const sec = document.getElementById('orphansSection');
+            const list = document.getElementById('orphansList');
+            const countEl = document.getElementById('orphansCount');
+            const orphans = contentItems.filter(it => {
+                const accs = it.accounts || [];
+                if (!accs.length) return false;
+                return accs.every(a => !a.ruleEnabled);
+            });
+            if (!orphans.length) {
+                sec.style.display = 'none';
+                list.innerHTML = '';
+                countEl.textContent = '0';
+                return;
+            }
+            sec.style.display = 'block';
+            countEl.textContent = String(orphans.length);
+            list.innerHTML = orphans.map(it => {
+                const poster = it.thumb ? `<img src="${it.thumb}" alt="" style="width:70px; height:100px; object-fit:cover; border-radius:8px;">` : '';
+                const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
+                return `<div class="card" style="padding:8px; gap:8px; align-items:center; width:230px;">
+                  ${poster || ''}
+                  <div class="meta" style="padding:0; gap:4px;">
+                    <div class="title">${escapeHtml(it.title || '')}</div>
+                    <div class="muted">${escapeHtml(subtitle)}</div>
+                  </div>
+                </div>`;
+            }).join('');
+        }
+
         async function bulkApply(enable) {
             const account = document.getElementById('bulkAccount').value;
             if (!account) {
