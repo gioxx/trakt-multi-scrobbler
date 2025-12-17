@@ -229,10 +229,17 @@ async def refresh_cache(force: bool = False) -> None:
             primary_tag = it.get("PrimaryImageTag") or (it.get("ImageTags") or {}).get("Primary") or ""
             series_primary_tag = it.get("SeriesPrimaryImageTag") or ""
             thumb_url = ""
-            if primary_tag:
-                thumb_url = _jellyfin_thumb(item_id, primary_tag)
-            elif series_primary_tag and it.get("SeriesId"):
-                thumb_url = _jellyfin_thumb(str(it.get("SeriesId")), series_primary_tag)
+            if typ == "episode":
+                show_id = str(it.get("SeriesId") or "").strip()
+                if series_primary_tag and show_id:
+                    # Prefer the show poster for episodes instead of episode stills.
+                    series_thumb_url = _jellyfin_thumb(show_id, series_primary_tag)
+                    thumb_url = series_thumb_url
+                elif primary_tag:
+                    thumb_url = _jellyfin_thumb(item_id, primary_tag)
+            else:
+                if primary_tag:
+                    thumb_url = _jellyfin_thumb(item_id, primary_tag)
 
             ud = it.get("UserData", {}) or {}
             played_pct = 0.0
@@ -245,7 +252,7 @@ async def refresh_cache(force: bool = False) -> None:
 
             show_id = str(it.get("SeriesId") or "").strip()
             season_id = str(it.get("ParentId") or it.get("SeasonId") or "").strip()
-            if series_primary_tag and show_id:
+            if series_primary_tag and show_id and not series_thumb_url:
                 series_thumb_url = _jellyfin_thumb(show_id, series_primary_tag)
 
             provider_key = _provider_key_from_ids(it.get("ProviderIds", {}))
