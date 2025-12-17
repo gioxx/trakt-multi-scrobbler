@@ -351,9 +351,12 @@ async def summary():
     movies = sum(1 for v in cache.catalog.values() if v.get("type") == "movie")
     shows = sum(1 for v in cache.catalog.values() if v.get("type") == "show")
     selected_count = len([uid for uid in cache.users.keys() if _is_user_selected(uid)])
+    total_users = len(cache.users.keys())
     return JSONResponse(
         {
             "users": selected_count,
+            "selectedUsers": selected_count,
+            "totalUsers": total_users,
             "lastRefresh": cache.last_refresh_ts,
             "traktConfigured": bool(trakt_service and trakt_service.ready),
             "movies": movies,
