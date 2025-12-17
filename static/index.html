@@ -26,6 +26,7 @@
                 <option value="it">🌐 Italiano</option>
             </select>
             <div id="summary" class="pill">ℹ️ Loading…</div>
+            <div id="libraryCounts" class="pill">—</div>
         </div>
     </header>
 
@@ -201,6 +202,7 @@
             document.getElementById('btnSync').textContent = t('button.sync');
             document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModal')} ${t('label.usersSuffix')}`;
             document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')}`;
+            document.getElementById('libraryCounts').textContent = t('label.libraryCounts', { movies: '—', shows: '—' });
             document.getElementById('jellyfinTitle').textContent = t('panel.jellyfinTitle');
             document.getElementById('jellyfinHelper').textContent = t('panel.jellyfinHelper');
             document.getElementById('traktTitle').textContent = t('panel.traktTitle');
@@ -662,6 +664,7 @@
             const date = s.lastRefresh ? new Date(s.lastRefresh * 1000).toLocaleString() : '—';
             const trakt = s.traktConfigured ? t('label.traktOn') : t('label.traktOff');
             document.getElementById('summary').textContent = `${t('header.summaryIcon')} ${t('summary.template', { users: s.users, date, trakt })}`;
+            document.getElementById('libraryCounts').textContent = t('label.libraryCounts', { movies: s.movies ?? '0', shows: s.shows ?? '0' });
         }
 
         document.getElementById('btnRefresh').addEventListener('click', async () => {

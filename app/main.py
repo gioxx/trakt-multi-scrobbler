@@ -341,12 +341,16 @@ async def index():
 @app.get("/api/summary")
 async def summary():
     await refresh_cache(force=False)
+    movies = sum(1 for v in cache.catalog.values() if v.get("type") == "movie")
+    shows = sum(1 for v in cache.catalog.values() if v.get("type") == "show")
     selected_count = len([uid for uid in cache.users.keys() if _is_user_selected(uid)])
     return JSONResponse(
         {
             "users": selected_count,
             "lastRefresh": cache.last_refresh_ts,
             "traktConfigured": bool(trakt_service and trakt_service.ready),
+            "movies": movies,
+            "shows": shows,
         }
     )
 

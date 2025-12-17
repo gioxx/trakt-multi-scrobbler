@@ -41,6 +41,7 @@
   "label.never": "Mai",
   "label.viewed": "Visto",
   "label.syncResult": "Risultato sync Trakt",
+  "label.libraryCounts": "🎬 {movies} film · 📺 {shows} serie",
   "label.noJellyfinUsers": "Nessun utente Jellyfin trovato.",
   "label.jellyfinToggleError": "Impossibile aggiornare la selezione degli utenti Jellyfin.",
   "label.noRecent": "Nessun contenuto recente.",
