@@ -22,7 +22,7 @@
             <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin User(s)</button>
             <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt User(s)</button>
             <div id="summary" class="pill">ℹ️ Loading…</div>
-            <select id="langSelect" class="pill" style="cursor:pointer; background:#0f1320; color:#e9eef5; border-radius:12px;">
+            <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
                 <option value="en">🌐 English</option>
                 <option value="it">🌐 Italiano</option>
             </select>
@@ -789,8 +789,10 @@
             const selectedUsers = s.selectedUsers ?? s.users ?? 0;
             const totalUsers = s.totalUsers ?? s.users ?? 0;
             document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModal')} ${t('label.usersSuffix')} · ${selectedUsers}/${totalUsers}`;
-            const traktTotal = (s.traktAccounts ?? []).length || (s.traktTotal ?? 0) || 0;
-            document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')} · ${traktTotal > 0 ? `${traktTotal}/${traktTotal}` : 0} · ${trakt}`;
+            const traktAccounts = s.traktAccounts ?? [];
+            const traktTotal = traktAccounts.length || (s.traktTotal ?? 0) || 0;
+            const traktEnabled = traktAccounts.filter(a => a && a.enabled).length;
+            document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')} · ${traktEnabled}/${traktTotal} · ${trakt}`;
         }
 
         document.getElementById('btnRefresh').addEventListener('click', async () => {
