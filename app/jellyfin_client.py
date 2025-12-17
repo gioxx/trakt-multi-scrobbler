@@ -31,7 +31,6 @@ class JellyfinClient:
         while start < max_items:
             resp = await self._get(
                 f"/Users/{user_id}/Items",
-                Filters="IsPlayed",
                 IncludeItemTypes="Movie,Episode",
                 Recursive=True,
                 Limit=page_size,
