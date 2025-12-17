@@ -449,7 +449,7 @@
                 const accountsHtml = (it.accounts || []).map(acc => {
                     const checked = acc.ruleEnabled ? 'checked' : '';
                     return `<label style="display:flex; align-items:center; gap:6px;">
-                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" ${checked}/>
+                      <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" data-type="${escapeHtml(it.type || '')}" ${checked}/>
                       <span class="muted">${escapeHtml(acc.username)}${acc.accountEnabled ? '' : ' (off)'}</span>
                     </label>`;
                 }).join('');
@@ -470,10 +470,11 @@
                     const username = e.target.getAttribute('data-username');
                     const pk = e.target.getAttribute('data-provider-key');
                     const gk = e.target.getAttribute('data-group-key');
+                    const typ = e.target.getAttribute('data-type') || '';
                     await fetch('/api/trakt/items/set', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, providerKey: pk, groupKey: gk, enabled: e.target.checked })
+                        body: JSON.stringify({ username, providerKey: pk, groupKey: gk, type: typ, enabled: e.target.checked })
                     });
                 });
             });
@@ -550,6 +551,7 @@
                     username: account,
                     providerKey: it.providerKey || "",
                     groupKey: it.groupKey || "",
+                    type: it.type || "",
                     enabled: enable
                 })
             })));

@@ -453,10 +453,17 @@ async def api_trakt_items_set(payload: Dict[str, Any] = Body(...)):
     pk = str(payload.get("providerKey") or "").strip()
     gk = str(payload.get("groupKey") or "").strip()
     username = str(payload.get("username") or "").strip()
+    typ = str(payload.get("type") or "").lower().strip()
     enabled = bool(payload.get("enabled", True))
     if not (pk or gk) or not username:
         return JSONResponse({"ok": False, "error": "missing_params"}, status_code=400)
-    ok = trakt_service.set_item_rule(username, pk or gk, enabled)
+    key = pk or gk
+    # Prefer grouping by series id for shows so future episodes inherit the rule.
+    if typ == "show" and gk:
+        key = gk
+    elif not key:
+        key = gk or pk
+    ok = trakt_service.set_item_rule(username, key, enabled)
     return JSONResponse({"ok": ok})
 
 
