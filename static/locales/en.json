@@ -8,7 +8,7 @@
   "button.sync": "Sync to Trakt",
   "button.syncing": "Syncing…",
   "button.jellyfinModal": "👤 Jellyfin",
-  "button.traktModal": "🎯 Trakt",
+  "button.traktModal": "👤 Trakt",
   "button.reloadAccounts": "Reload accounts",
   "button.addAccount": "Add Trakt account",
   "button.contentFilters": "Content filters",

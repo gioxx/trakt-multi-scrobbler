@@ -20,13 +20,11 @@
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
             <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin</button>
-            <button id="btnTraktModal" class="pill" style="cursor:pointer;">🎯 Trakt</button>
+            <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt</button>
             <select id="langSelect" class="pill" style="cursor:pointer; background:#0f1320; color:#e9eef5; border-radius:12px;">
                 <option value="en">🌐 English</option>
                 <option value="it">🌐 Italiano</option>
             </select>
-            <button id="btnRefresh" class="pill" style="cursor:pointer;">↻</button>
-            <button id="btnSync" class="pill" style="cursor:pointer;">⇅</button>
             <div id="summary" class="pill">ℹ️ Loading…</div>
         </div>
     </header>
@@ -112,7 +110,10 @@
                 <button id="btnCloseJellyfin">Close</button>
             </div>
             <div class="modal-body">
-                <p id="jellyfinHelper" class="muted">Scegli quali utenti Jellyfin usare come base per lo scrobbling.</p>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+                    <p id="jellyfinHelper" class="muted" style="margin:0;">Scegli quali utenti Jellyfin usare come base per lo scrobbling.</p>
+                    <button id="btnRefresh" class="pill" style="cursor:pointer;">↻</button>
+                </div>
                 <div id="jellyfinUsers" class="grid"></div>
             </div>
         </div>
@@ -129,6 +130,7 @@
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
                     <button id="btnAddTrakt">Add Trakt account</button>
                     <button id="btnReloadTrakt">Reload accounts</button>
+                    <button id="btnSync" class="pill" style="cursor:pointer;">⇅</button>
                 </div>
                 <div id="traktNotice" class="muted" style="margin-bottom:10px; display:none;"></div>
                 <div id="traktAccounts" class="grid"></div>
