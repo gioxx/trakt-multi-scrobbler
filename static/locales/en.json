@@ -3,6 +3,7 @@
   "subtitle": "Send Jellyfin watches to one or more Trakt users.",
   "header.summaryIcon": "ℹ️",
   "header.langIcon": "🌐",
+  "summary.updated": "updated: {date}",
   "search.placeholder": "Filter by title…",
   "button.refresh": "Refresh Jellyfin",
   "button.sync": "Sync to Trakt",

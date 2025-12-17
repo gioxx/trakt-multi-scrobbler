@@ -3,6 +3,7 @@
   "subtitle": "Segna su Trakt ciò che guardi in Jellyfin, per più utenti.",
   "header.summaryIcon": "ℹ️",
   "header.langIcon": "🌐",
+  "summary.updated": "aggiornato: {date}",
   "search.placeholder": "Filtra per titolo…",
   "button.refresh": "Aggiorna da Jellyfin",
   "button.sync": "Invia a Trakt",
