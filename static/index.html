@@ -67,6 +67,10 @@
                     <button id="filterShows" class="pill">Shows</button>
                     <button id="filterUnassigned" class="pill">Unassigned</button>
                 </div>
+                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                    <label class="muted" for="accountFilter" id="accountFilterLabel">Assigned to:</label>
+                    <select id="accountFilter" style="min-width:180px;"></select>
+                </div>
             </div>
             <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -153,6 +157,7 @@
         let contentFilter = 'all';
         let alphaFilter = '';
         let recentItems = [];
+        let accountFilter = '';
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -220,6 +225,7 @@
             document.getElementById('filterMovies').textContent = t('filter.movies');
             document.getElementById('filterShows').textContent = t('filter.shows');
             document.getElementById('filterUnassigned').textContent = t('filter.unassigned');
+            document.getElementById('accountFilterLabel').textContent = t('filter.accountLabel');
             document.getElementById('btnSelectAll').textContent = t('bulk.select');
             document.getElementById('btnDeselectAll').textContent = t('bulk.deselect');
             renderAlphaBar();
@@ -414,6 +420,16 @@
             } else if (traktAccounts.length) {
                 bulkSel.value = traktAccounts[0].username;
             }
+            // account filter options
+            const accountSel = document.getElementById('accountFilter');
+            const prevAcc = accountSel.value;
+            accountSel.innerHTML = `<option value="">${escapeHtml(t('filter.accountAny'))}</option>` + traktAccounts.map(a => `<option value="${escapeHtml(a.username)}">${escapeHtml(a.username)}</option>`).join('');
+            if (prevAcc && traktAccounts.some(a => a.username === prevAcc)) {
+                accountSel.value = prevAcc;
+            } else {
+                accountSel.value = '';
+                accountFilter = '';
+            }
         }
 
         function renderContentList() {
@@ -434,6 +450,11 @@
                         return accs.every(a => !a.ruleEnabled);
                     }
                     return true;
+                })
+                .filter(i => {
+                    if (!accountFilter) return true;
+                    const accs = i.accounts || [];
+                    return accs.some(a => a.username === accountFilter && a.ruleEnabled);
                 })
                 .filter(i => {
                     if (!alphaFilter) return true;
@@ -684,6 +705,10 @@
         document.getElementById('btnSelectAll').addEventListener('click', () => bulkApply(true));
         document.getElementById('btnDeselectAll').addEventListener('click', () => bulkApply(false));
         document.getElementById('search').addEventListener('input', renderContentList);
+        document.getElementById('accountFilter').addEventListener('change', (e) => {
+            accountFilter = e.target.value || '';
+            renderContentList();
+        });
         document.getElementById('btnJellyfinModal').addEventListener('click', () => { loadJellyfinUsers(); openJellyfinModal(); });
         document.getElementById('btnTraktModal').addEventListener('click', () => { loadTraktAccounts(); openTraktModal(); });
         document.getElementById('btnCloseJellyfin').addEventListener('click', closeJellyfinModal);

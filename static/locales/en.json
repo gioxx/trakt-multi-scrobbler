@@ -21,6 +21,8 @@
   "filter.movies": "Movies",
   "filter.shows": "Series",
   "filter.unassigned": "Unassigned",
+  "filter.accountLabel": "Assigned to:",
+  "filter.accountAny": "Any Trakt account",
   "panel.jellyfinTitle": "Jellyfin users",
   "panel.jellyfinHelper": "Pick which Jellyfin users drive scrobbling toward Trakt accounts.",
   "panel.traktTitle": "Trakt accounts",
