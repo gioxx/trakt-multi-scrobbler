@@ -10,6 +10,8 @@
   "button.jellyfinModal": "👤 Jellyfin",
   "button.traktModal": "👤 Trakt",
   "label.usersSuffix": "User(s)",
+  "theme.light": "Passa al tema chiaro",
+  "theme.dark": "Passa al tema scuro",
   "button.reloadAccounts": "Ricarica account",
   "button.addAccount": "Aggiungi account Trakt",
   "button.contentFilters": "Filtri contenuti",

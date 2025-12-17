@@ -21,6 +21,7 @@
         <div style="display:flex; gap:8px; align-items:center;">
             <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin User(s)</button>
             <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt User(s)</button>
+            <button id="btnTheme" class="pill" style="cursor:pointer;">🌙</button>
             <select id="langSelect" class="pill" style="cursor:pointer; background:#0f1320; color:#e9eef5; border-radius:12px;">
                 <option value="en">🌐 English</option>
                 <option value="it">🌐 Italiano</option>
@@ -31,7 +32,7 @@
     </header>
 
     <main>
-        <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
+        <section class="panel">
             <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
                 <div>
                     <div id="recentTitle" style="font-weight:700; font-size:17px;">Ultimi visti</div>
@@ -41,7 +42,7 @@
             <div id="recentList" class="grid"></div>
         </section>
 
-        <section id="orphansSection" style="display:none; border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
+        <section id="orphansSection" class="panel" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
                     <div id="orphansTitle" style="font-weight:700; font-size:17px;">Unassigned content</div>
@@ -52,7 +53,7 @@
             <div id="orphansList" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
         </section>
 
-        <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; background:#0f1320;">
+        <section class="panel">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
                     <div id="contentTitle" style="font-weight:700; font-size:17px;">Content filters</div>
@@ -143,7 +144,7 @@
         </div>
     </div>
 
-    <div id="toast" style="position:fixed; right:16px; bottom:16px; background:#132033; color:#e9eef5; padding:10px 12px; border-radius:10px; border:1px solid #1f2c44; box-shadow:0 4px 14px rgba(0,0,0,0.35); display:none; z-index:9999; min-width:200px; max-width:320px;"></div>
+    <div id="toast" style="position:fixed; right:16px; bottom:16px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); box-shadow:0 4px 14px rgba(0,0,0,0.25); display:none; z-index:9999; min-width:200px; max-width:320px; background: var(--panel); color: var(--text);"></div>
 
     <script>
         let translations = {};
@@ -161,6 +162,7 @@
         let recentItems = [];
         let accountFilter = '';
         let toastTimer = null;
+        let currentTheme = 'dark';
 
         function showStatus(message, type = 'info') {
             const el = document.getElementById('toast');
@@ -176,6 +178,27 @@
             toastTimer = setTimeout(() => {
                 el.style.display = 'none';
             }, 2600);
+        }
+
+        function applyTheme(theme) {
+            currentTheme = theme;
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            const btn = document.getElementById('btnTheme');
+            if (btn) {
+                btn.textContent = theme === 'light' ? '🌙' : '☀️';
+                btn.setAttribute('aria-label', theme === 'light' ? t('theme.dark') : t('theme.light'));
+            }
+        }
+
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || saved === 'dark') {
+                applyTheme(saved);
+                return;
+            }
+            const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+            applyTheme(prefersLight ? 'light' : 'dark');
         }
 
         function escapeHtml(s) {
@@ -262,6 +285,10 @@
                 if (opt.value === 'en') opt.textContent = `${t('header.langIcon')} English`;
                 if (opt.value === 'it') opt.textContent = `${t('header.langIcon')} Italiano`;
             });
+            const btnTheme = document.getElementById('btnTheme');
+            if (btnTheme) {
+                btnTheme.setAttribute('aria-label', currentTheme === 'light' ? t('theme.dark') : t('theme.light'));
+            }
         }
 
         // Jellyfin users selector
@@ -800,6 +827,9 @@
         });
         document.getElementById('btnJellyfinModal').addEventListener('click', () => { loadJellyfinUsers(); openJellyfinModal(); });
         document.getElementById('btnTraktModal').addEventListener('click', () => { loadTraktAccounts(); openTraktModal(); });
+        document.getElementById('btnTheme').addEventListener('click', () => {
+            applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+        });
         document.getElementById('btnCloseJellyfin').addEventListener('click', closeJellyfinModal);
         document.getElementById('btnCloseTrakt').addEventListener('click', closeTraktModal);
         document.getElementById('langSelect').addEventListener('change', async (e) => {
@@ -822,6 +852,7 @@
 
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';
+            initTheme();
             await loadLang(storedLang);
             await loadSummary();
             await loadJellyfinUsers();

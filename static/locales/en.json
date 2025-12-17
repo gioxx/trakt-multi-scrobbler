@@ -10,6 +10,8 @@
   "button.jellyfinModal": "👤 Jellyfin",
   "button.traktModal": "👤 Trakt",
   "label.usersSuffix": "User(s)",
+  "theme.light": "Switch to light mode",
+  "theme.dark": "Switch to dark mode",
   "button.reloadAccounts": "Reload accounts",
   "button.addAccount": "Add Trakt account",
   "button.contentFilters": "Content filters",
