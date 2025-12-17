@@ -361,6 +361,7 @@ async def summary():
             "traktConfigured": bool(trakt_service and trakt_service.ready),
             "movies": movies,
             "shows": shows,
+            "traktAccounts": list(trakt_service.accounts.keys()) if trakt_service else [],
         }
     )
 

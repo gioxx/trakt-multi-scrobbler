@@ -13,6 +13,8 @@
   "label.usersSuffix": "User(s)",
   "theme.light": "Switch to light mode",
   "theme.dark": "Switch to dark mode",
+  "theme.lightLabel": "Light",
+  "theme.darkLabel": "Dark",
   "button.reloadAccounts": "Reload accounts",
   "button.addAccount": "Add Trakt account",
   "button.contentFilters": "Content filters",
