@@ -1,107 +1,78 @@
 # Trakt Multi-Scrobbler (Jellyfin → Trakt)
 
-Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watched” su uno o più account Trakt. Ogni account Trakt ha una checkbox per attivare o disattivare lo scrobbling e puoi collegare nuovi account direttamente dalla UI (device flow guidato).
+![Logo](static/scrobbler_icon.webp)
 
-## Cosa fa
-- Scarica la cronologia “Played” di Jellyfin (film ed episodi) usando `JELLYFIN_URL` e `JELLYFIN_APIKEY`.
-- Costruisce eventi completati con data/ora e ID TMDB/IMDB/TVDB.
-- Puoi scegliere quali utenti Jellyfin sono considerati “fonte” per gli scrobble (checkbox).
-- Per ogni account Trakt abilitato, invia gli eventi a `POST https://api.trakt.tv/sync/history` preservando il timestamp originale.
-- Tiene `last_synced` per ogni utente Trakt così da non duplicare scrobble.
-- Filtra per titolo/serie a quali account Trakt mandare gli scrobble (regole per film/serie).
-- L’interfaccia web mostra utenti Jellyfin, account Trakt (checkbox), orfani (contenuti senza destinazione), filtri e un pulsante “Sync to Trakt”.
+Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account Trakt. Supporta più utenti per entrambi i servizi, regole per serie/film, tema chiaro/scuro e gestione account Trakt via device flow.
+
+## Funzionalità principali
+- Lettura libreria Jellyfin (film/episodi) con ID TMDB/IMDB/TVDB e locandine.
+- Scelta degli utenti Jellyfin che fungono da “fonte” (persistita).
+- Regole per contenuto: per ogni film/serie decidi a quali account Trakt inviare gli scrobble.
+- Sync automatica/su richiesta verso Trakt, con filtri per nuovi titoli e “Unassigned”.
+- Aggiunta/rimozione account Trakt dalla UI (device flow) e toggle per abilitarli.
+- Tema chiaro/scuro e localizzazione (en/it).
 
 ## Requisiti
 - Jellyfin con API key.
-- Un’app Trakt (prendi `client_id` e `client_secret` da https://trakt.tv/oauth/applications).
-- Token di ogni utente Trakt che vuoi scrobblare.
-- Python 3.11+ (o Docker).
+- App Trakt con `client_id` e `client_secret` (https://trakt.tv/oauth/applications).
+- Python 3.11+ oppure Docker.
 
-## Configurazione passo-passo (principiante)
-1) **Clona il repo**  
+## Configurazione rapida
+1) **Clona il repo**
    ```bash
    git clone https://github.com/gioxx/trakt-multi-scrobbler.git
    cd trakt-multi-scrobbler
    ```
 
-2) **Crea il file di configurazione Trakt** (`trakt_accounts.json` nella root, può anche essere vuoto: verrà popolato dalla UI):  
-   ```json
-   {
-     "accounts": [
-       {
-         "username": "nome-utente-trakt",
-         "access_token": "...",
-         "refresh_token": "...",
-         "expires_at": 1730000000,
-         "enabled": true
-       }
-     ],
-     "last_synced": {}
-   }
-   ```
-   - `expires_at` è un timestamp Unix (secondi) quando scade l’`access_token`.
-   - Puoi inserire più account: ognuno comparirà con una propria checkbox.
-
-3) **Ottieni i token Trakt (una volta per ogni utente)**  
-   Hai due alternative:
-   - **Via UI guidata (consigliato)**: avvia l’app, clicca “Add Trakt account”, copia il codice, apri il link e autorizza. L’app aggiungerà automaticamente `access_token`/`refresh_token`/`expires_at` al file `trakt_accounts.json`.
-   - **Via curl manuale**:
-     - Vai su https://trakt.tv/oauth/applications e prendi `client_id` e `client_secret` della tua app.
-     - Avvia il device flow per ottenere il `user_code`:
-       ```bash
-       curl -X POST https://api.trakt.tv/oauth/device/code \
-         -H "Content-Type: application/json" \
-         -d '{"client_id":"<client_id>"}'
-       ```
-       Annota `user_code`, `device_code` e `verification_url`.
-     - Apri `verification_url`, inserisci `user_code` e autorizza.
-     - Scambia il `device_code` per i token:
-       ```bash
-       curl -X POST https://api.trakt.tv/oauth/device/token \
-         -H "Content-Type: application/json" \
-         -d '{"client_id":"<client_id>","client_secret":"<client_secret>","code":"<device_code>"}'
-       ```
-       L’output contiene `access_token`, `refresh_token` ed `expires_in` (in secondi). Calcola `expires_at` = `now + expires_in` (in secondi, non millisecondi) e incollalo nel JSON.
-
-4) **Imposta le variabili d’ambiente** (esempio):
+2) **Variabili d’ambiente minime**
    ```bash
    export JELLYFIN_URL="https://il-tuo-jellyfin"
    export JELLYFIN_APIKEY="API_KEY_JELLYFIN"
    export TRAKT_CLIENT_ID="CLIENT_ID_TRAKT"
    export TRAKT_CLIENT_SECRET="CLIENT_SECRET_TRAKT"
-   export TRAKT_STATE_PATH="trakt_accounts.json"     # opzionale
-   export JELLYFIN_STATE_PATH="jellyfin_state.json"  # opzionale, selezione utenti Jellyfin (di default usa la stessa cartella di TRAKT_STATE_PATH)
-   export WATCH_THRESHOLD="0.95"                   # opzionale, % vista per dire “completato”
-   export REFRESH_MINUTES="30"                     # opzionale, polling Jellyfin
    ```
-   > Nota: `TRAKT_CLIENT_ID` e `TRAKT_CLIENT_SECRET` sono quelli della tua app Trakt e valgono per tutti gli utenti Trakt. Ogni utente ha poi i **propri** `access_token`/`refresh_token`/`expires_at` nel file `trakt_accounts.json`.
+   Opzionali:
+   ```bash
+   export TRAKT_STATE_PATH="trakt_accounts.json"     # percorso stato account Trakt
+   export JELLYFIN_STATE_PATH="jellyfin_state.json"  # percorso selezione utenti Jellyfin (default: stessa cartella di TRAKT_STATE_PATH)
+   export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
+   export REFRESH_MINUTES="30"                       # polling Jellyfin
+   ```
 
-5) **Avvia in locale (Python)**  
+3) **Avvio locale (Python)**
    ```bash
    pip install -r requirements.txt
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8089
    ```
-   Poi apri http://localhost:8089.
+   Apri http://localhost:8089.
 
-6) **Avvia con Docker**  
+4) **Avvio con Docker**
    ```bash
    docker compose up --build
    ```
-   - Usa il volume nominato già previsto in `docker-compose.yml`: i dati vivono in `data/trakt_accounts.json` dentro il container.
-   - Se vuoi inizializzarlo a mano: `docker compose run --rm trakt-multi-scrobbler sh -c 'cat > /data/trakt_accounts.json <<EOF\n{ \"accounts\": [], \"last_synced\": {} }\nEOF'`
+   Usa il volume nominato previsto in `docker-compose.yml` (`/data`). Se vuoi inizializzare:
+   ```bash
+   docker compose run --rm trakt-multi-scrobbler sh -c 'cat > /data/trakt_accounts.json <<EOF\n{ \"accounts\": [], \"last_synced\": {} }\nEOF'
+   ```
 
-### Posso ottenere i token Trakt via pagina web?
-Sì. La UI integra il device flow Trakt: “Add Trakt account” mostra il codice e il link di verifica, poi salva i token nel JSON una volta approvato. In alternativa puoi usare i comandi `curl` indicati sopra.
+## Collegare account Trakt (device flow)
+- Dalla UI clicca “Add Trakt account”, copia il codice, apri il link, autorizza: i token vengono salvati in `TRAKT_STATE_PATH`.
+- In alternativa, via curl:
+  1. `POST https://api.trakt.tv/oauth/device/code` con `client_id`.
+  2. Autorizza via `verification_url` con `user_code`.
+  3. `POST https://api.trakt.tv/oauth/device/token` con `client_id`, `client_secret`, `code` per ottenere `access_token`/`refresh_token`/`expires_in`.
+  4. Calcola `expires_at = now + expires_in` (secondi) e inserisci nel JSON.
 
-## Come usarlo
-- **Jellyfin users**: seleziona quali utenti Jellyfin contano per gli scrobble verso Trakt (di default sono tutti). La selezione è salvata in `JELLYFIN_STATE_PATH`.
-- **Trakt accounts**: vedi l’elenco degli utenti Trakt trovati nel JSON; attiva/disattiva la checkbox per decidere chi riceve gli scrobble; aggiungi/rimuovi via UI.
-- **Content filters**: per ogni film/serie scegli a quali account Trakt mandare gli scrobble (checkbox per account). I contenuti senza nessun account attivo finiscono nella sezione “Unassigned”.
-- **Sync to Trakt**: invia subito tutti gli eventi completati rilevati in Jellyfin (altrimenti la sync gira automaticamente ogni `REFRESH_MINUTES`).
-- **Jellyfin history**: scegli un utente Jellyfin per vedere cosa ha guardato; i poster e le date vengono direttamente da Jellyfin.
+## Come usare la UI
+- **Jellyfin User(s)**: scegli quali utenti Jellyfin sono monitorati (checkbox nel modale). Persistenza in `JELLYFIN_STATE_PATH`.
+-. **Trakt User(s)**: aggiungi/rimuovi account via device flow, attiva/disattiva con la checkbox. Persistenza in `TRAKT_STATE_PATH`.
+- **Content filters**: ricerca, filtro tipo (film/serie), filtro alfabetico e filtro per account Trakt; assegna le regole per film/serie (checkbox per account). “Unassigned” mostra i titoli senza destinazione.
+- **Sync to Trakt**: invia subito gli eventi completati; la sync gira anche in automatico ogni `REFRESH_MINUTES`.
+- **Refresh Jellyfin**: forza l’aggiornamento di libreria/utenti/cache.
+- **Recently watched**: ultimi 6 titoli visti dagli utenti Jellyfin selezionati.
 
 ## Note e limiti
-- Sono inviati a Trakt solo gli elementi con ID TMDB/IMDB/TVDB (servono per il match).
+- Vengono scrobblati solo i titoli con ID TMDB/IMDB/TVDB.
 - I timestamp inviati a Trakt sono quelli originali di Jellyfin.
-- I token Trakt vengono aggiornati automaticamente tramite `refresh_token` quando servono.
-- Localizzazione: file in `static/locales/en.json` e `static/locales/it.json`.
+- I token Trakt vengono refreshati automaticamente.
+- Localizzazione: i file sono in `static/locales/en.json` e `static/locales/it.json`. Per aggiungere una lingua crea `static/locales/<codice>.json` e aggiungi l’opzione al select lingua in `static/index.html`.

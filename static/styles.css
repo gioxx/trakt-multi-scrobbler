@@ -59,6 +59,14 @@ header {
     background: var(--pill-bg);
 }
 
+.pill img {
+    filter: invert(1);
+}
+
+[data-theme="light"] .pill img {
+    filter: invert(0);
+}
+
 main {
     padding: 16px;
     max-width: 1100px;
