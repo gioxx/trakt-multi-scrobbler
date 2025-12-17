@@ -28,6 +28,7 @@ class JellyfinClient:
             Filters="IsPlayed",
             IncludeItemTypes="Movie,Episode",
             Recursive=True,
+            Limit=0,  # 0 = no limit; Jellyfin defaults to 100 otherwise
             SortBy="DatePlayed",
             Fields="ProviderIds,SeriesId,ParentId,UserData,PrimaryImageTag,SeriesPrimaryImageTag,ImageTags,RunTimeTicks,OfficialRating,CommunityRating,IndexNumber,ParentIndexNumber",
             EnableTotalRecordCount=False,

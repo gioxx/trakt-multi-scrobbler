@@ -25,7 +25,17 @@ REFRESH_MINUTES = int(os.environ.get("REFRESH_MINUTES", "30"))
 TRAKT_CLIENT_ID = os.environ.get("TRAKT_CLIENT_ID", "").strip()
 TRAKT_CLIENT_SECRET = os.environ.get("TRAKT_CLIENT_SECRET", "").strip()
 TRAKT_STATE_PATH = os.environ.get("TRAKT_STATE_PATH", "trakt_accounts.json")
-JELLYFIN_STATE_PATH = os.environ.get("JELLYFIN_STATE_PATH", "jellyfin_state.json")
+
+
+def _default_jellyfin_state_path() -> str:
+    env_path = os.environ.get("JELLYFIN_STATE_PATH", "").strip()
+    if env_path:
+        return env_path
+    base_dir = os.path.dirname(TRAKT_STATE_PATH) or "."
+    return os.path.join(base_dir, "jellyfin_state.json")
+
+
+JELLYFIN_STATE_PATH = _default_jellyfin_state_path()
 
 if not (JELLYFIN_URL and JELLYFIN_APIKEY):
     raise RuntimeError("Missing required env vars: JELLYFIN_URL, JELLYFIN_APIKEY")

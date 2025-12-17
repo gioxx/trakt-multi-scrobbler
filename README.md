@@ -69,8 +69,8 @@ Piccola dashboard che legge cosa hai visto su Jellyfin e lo marca come “watche
    export JELLYFIN_APIKEY="API_KEY_JELLYFIN"
    export TRAKT_CLIENT_ID="CLIENT_ID_TRAKT"
    export TRAKT_CLIENT_SECRET="CLIENT_SECRET_TRAKT"
-   export TRAKT_STATE_PATH="trakt_accounts.json"   # opzionale
-   export JELLYFIN_STATE_PATH="jellyfin_state.json" # opzionale, selezione utenti Jellyfin
+   export TRAKT_STATE_PATH="trakt_accounts.json"     # opzionale
+   export JELLYFIN_STATE_PATH="jellyfin_state.json"  # opzionale, selezione utenti Jellyfin (di default usa la stessa cartella di TRAKT_STATE_PATH)
    export WATCH_THRESHOLD="0.95"                   # opzionale, % vista per dire “completato”
    export REFRESH_MINUTES="30"                     # opzionale, polling Jellyfin
    ```
