@@ -9,6 +9,7 @@
   "button.syncing": "Invio in corso…",
   "button.jellyfinModal": "👤 Jellyfin",
   "button.traktModal": "👤 Trakt",
+  "label.usersSuffix": "User(s)",
   "button.reloadAccounts": "Ricarica account",
   "button.addAccount": "Aggiungi account Trakt",
   "button.contentFilters": "Filtri contenuti",

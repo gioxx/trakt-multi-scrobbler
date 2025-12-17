@@ -22,17 +22,32 @@ class JellyfinClient:
         return await self._get("/Users")
 
     async def get_user_items(self, user_id: str):
-        # Fetch played movies/episodes for a user.
-        return await self._get(
-            f"/Users/{user_id}/Items",
-            Filters="IsPlayed",
-            IncludeItemTypes="Movie,Episode",
-            Recursive=True,
-            Limit=5000,  # increase from default 100 to avoid truncation
-            SortBy="DatePlayed",
-            Fields="ProviderIds,SeriesId,ParentId,UserData,PrimaryImageTag,SeriesPrimaryImageTag,ImageTags,RunTimeTicks,OfficialRating,CommunityRating,IndexNumber,ParentIndexNumber",
-            EnableTotalRecordCount=False,
-        )
+        """Fetch played movies/episodes for a user (paginated to avoid truncation)."""
+        page_size = 2000
+        start = 0
+        all_items = []
+        # Safety cap to avoid runaway loops.
+        max_items = 200000
+        while start < max_items:
+            resp = await self._get(
+                f"/Users/{user_id}/Items",
+                Filters="IsPlayed",
+                IncludeItemTypes="Movie,Episode",
+                Recursive=True,
+                Limit=page_size,
+                StartIndex=start,
+                SortBy="DatePlayed",
+                Fields="ProviderIds,SeriesId,ParentId,UserData,PrimaryImageTag,SeriesPrimaryImageTag,ImageTags,RunTimeTicks,OfficialRating,CommunityRating,IndexNumber,ParentIndexNumber",
+                EnableTotalRecordCount=False,
+            )
+            page_items = resp.get("Items", []) if isinstance(resp, dict) else (resp or [])
+            if not page_items:
+                break
+            all_items.extend(page_items)
+            if len(page_items) < page_size:
+                break
+            start += page_size
+        return {"Items": all_items}
 
     async def get_series_episodes(self, series_id: str):
         # All episodes for a series
