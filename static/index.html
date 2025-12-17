@@ -165,9 +165,10 @@
         function showStatus(message, type = 'info') {
             const el = document.getElementById('toast');
             if (!el) return;
-            el.textContent = message;
-            const color = type === 'error' ? '#3b1b1b' : '#132033';
-            const border = type === 'error' ? '#7a2c2c' : '#1f2c44';
+            const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            el.textContent = `${icon} ${message}`;
+            const color = type === 'error' ? '#3b1b1b' : type === 'success' ? '#11321e' : '#132033';
+            const border = type === 'error' ? '#7a2c2c' : type === 'success' ? '#235932' : '#1f2c44';
             el.style.background = color;
             el.style.borderColor = border;
             el.style.display = 'block';
@@ -294,7 +295,7 @@
                         });
                         await loadSummary();
                         await loadRecent();
-                        showStatus(t('status.jellyfinSaved'));
+                        showStatus(t('status.jellyfinSaved'), 'success');
                     } catch (err) {
                         e.target.checked = !e.target.checked;
                         alert(t('label.jellyfinToggleError'));
@@ -409,7 +410,7 @@
                             body: JSON.stringify({ username, enabled: e.target.checked })
                         });
                         if (!resp.ok) throw new Error('save_failed');
-                        showStatus(t('status.traktSaved'));
+                        showStatus(t('status.traktSaved'), 'success');
                         await loadTraktAccounts();
                         await loadContentItems();
                     } catch (err) {
@@ -431,7 +432,7 @@
                             body: JSON.stringify({ username })
                         });
                         if (!resp.ok) throw new Error('delete_failed');
-                        showStatus(t('status.traktDeleted'));
+                        showStatus(t('status.traktDeleted'), 'success');
                         await loadTraktAccounts();
                         await loadContentItems();
                     } catch (err) {
@@ -538,7 +539,7 @@
                             body: JSON.stringify({ username, providerKey: pk, groupKey: gk, type: typ, enabled: e.target.checked })
                         });
                         if (!resp.ok) throw new Error('save_failed');
-                        showStatus(t('status.saved'));
+                        showStatus(t('status.saved'), 'success');
                     } catch (err) {
                         e.target.checked = !e.target.checked;
                         showStatus(t('status.saveError'), 'error');
@@ -630,7 +631,7 @@
                         enabled: enable
                     })
                 })));
-                showStatus(enable ? t('status.bulkAssigned') : t('status.bulkCleared'));
+                showStatus(enable ? t('status.bulkAssigned') : t('status.bulkCleared'), 'success');
             } catch (e) {
                 showStatus(t('status.saveError'), 'error');
             } finally {
@@ -741,9 +742,9 @@
                     }
                     return `${user}: ${t('status.syncError')}`;
                 });
-                showStatus(parts.join(' | ') || t('status.syncDone'));
+                showStatus(parts.join(' | ') || t('status.syncDone'), 'success');
             } catch (e) {
-                alert('Failed to sync.');
+                showStatus(t('status.syncError'), 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = t('button.sync');
@@ -769,7 +770,7 @@
                 await loadJellyfinUsers();
                 await loadRecent();
                 await loadContentItems();
-                showStatus(t('status.refreshed'));
+                showStatus(t('status.refreshed'), 'success');
             } catch (e) {
                 showStatus(t('status.refreshError'), 'error');
             } finally {
@@ -780,7 +781,7 @@
         document.getElementById('btnSync').addEventListener('click', triggerSync);
         document.getElementById('btnReloadTrakt').addEventListener('click', async () => {
             await loadTraktAccounts();
-            showStatus(t('status.traktReloaded'));
+            showStatus(t('status.traktReloaded'), 'success');
         });
         document.getElementById('btnAddTrakt').addEventListener('click', startDeviceFlow);
         document.getElementById('btnPollNow').addEventListener('click', pollDeviceFlow);

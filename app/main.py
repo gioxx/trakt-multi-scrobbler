@@ -509,7 +509,7 @@ async def api_toggle_user(payload: Dict[str, Any] = Body(...)):
 async def api_recent():
     """Return recent completed items across selected Jellyfin users."""
     await refresh_cache(force=False)
-    items = _recent_completed_events(limit=5)
+    items = _recent_completed_events(limit=6)
     return JSONResponse({"items": items})
 
 
