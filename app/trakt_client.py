@@ -269,14 +269,36 @@ class TraktService:
             movies: List[Dict[str, object]] = []
             episodes: List[Dict[str, object]] = []
             max_ts_sent = 0.0
+            skipped_missing_ids = 0
+            skipped_disallowed = 0
+            sample_missing: List[Dict[str, str]] = []
+            sample_disallowed: List[Dict[str, str]] = []
             for ev in events_sorted:
                 ts = float(ev.get("date") or 0.0)
                 if ts <= last or not ev.get("completed"):
                     continue
                 ids = _trakt_ids(str(ev.get("providerKey") or ""))
                 if not ids:
+                    skipped_missing_ids += 1
+                    if len(sample_missing) < 5:
+                        sample_missing.append(
+                            {
+                                "title": str(ev.get("title") or ev.get("seriesName") or ""),
+                                "providerKey": str(ev.get("providerKey") or ""),
+                                "groupKey": str(ev.get("groupKey") or ""),
+                            }
+                        )
                     continue
                 if not self.item_allowed(username, str(ev.get("providerKey") or ""), str(ev.get("groupKey") or "")):
+                    skipped_disallowed += 1
+                    if len(sample_disallowed) < 5:
+                        sample_disallowed.append(
+                            {
+                                "title": str(ev.get("title") or ev.get("seriesName") or ""),
+                                "providerKey": str(ev.get("providerKey") or ""),
+                                "groupKey": str(ev.get("groupKey") or ""),
+                            }
+                        )
                     continue
                 record = {"ids": ids, "watched_at": _iso(ts)}
                 typ = str(ev.get("type") or "").lower()
@@ -296,7 +318,15 @@ class TraktService:
                 if movies or episodes:
                     self.last_synced[username] = max_ts_sent or last
                     self._save_state()
-                results[username] = {"ok": True, "sent": {"movies": len(movies), "episodes": len(episodes)}, "response": body}
+                results[username] = {
+                    "ok": True,
+                    "sent": {"movies": len(movies), "episodes": len(episodes)},
+                    "skipped_missing_ids": skipped_missing_ids,
+                    "skipped_disallowed": skipped_disallowed,
+                    "samples_missing_ids": sample_missing,
+                    "samples_disallowed": sample_disallowed,
+                    "response": body,
+                }
             else:
                 results[username] = {"ok": False, "payload": payload, "response": body}
         return {"ok": True, "results": results}
