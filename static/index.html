@@ -19,6 +19,8 @@
             </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
+            <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin</button>
+            <button id="btnTraktModal" class="pill" style="cursor:pointer;">🎯 Trakt</button>
             <select id="langSelect" class="pill" style="cursor:pointer; background:#0f1320; color:#e9eef5; border-radius:12px;">
                 <option value="en">🌐 English</option>
                 <option value="it">🌐 Italiano</option>
@@ -33,26 +35,11 @@
         <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
             <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
                 <div>
-                    <div id="jellyfinTitle" style="font-weight:700; font-size:17px;">Jellyfin users</div>
-                    <div id="jellyfinHelper" class="muted">Scegli quali utenti Jellyfin usare come base per lo scrobbling.</div>
+                    <div id="recentTitle" style="font-weight:700; font-size:17px;">Ultimi visti</div>
+                    <div id="recentHelper" class="muted">Contenuti appena visti dagli utenti Jellyfin selezionati.</div>
                 </div>
             </div>
-            <div id="jellyfinUsers" class="grid"></div>
-        </section>
-
-        <section style="border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
-            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
-                <div>
-                    <div id="traktTitle" style="font-weight:700; font-size:17px;">Trakt accounts</div>
-                    <div id="traktHelper" class="muted">Attiva o disattiva lo scrobbling per ciascun account collegato.</div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button id="btnAddTrakt">Add Trakt account</button>
-                    <button id="btnReloadTrakt">Reload accounts</button>
-                </div>
-            </div>
-            <div id="traktNotice" class="muted" style="margin-bottom:10px; display:none;"></div>
-            <div id="traktAccounts" class="grid"></div>
+            <div id="recentList" class="grid"></div>
         </section>
 
         <section id="orphansSection" style="display:none; border:1px solid #1d2330; border-radius:16px; padding:14px; margin-bottom:16px; background:#0f1320;">
@@ -118,6 +105,37 @@
         </div>
     </div>
 
+    <div id="jellyfinModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div id="jellyfinTitle" style="font-weight:700;">Jellyfin users</div>
+                <button id="btnCloseJellyfin">Close</button>
+            </div>
+            <div class="modal-body">
+                <p id="jellyfinHelper" class="muted">Scegli quali utenti Jellyfin usare come base per lo scrobbling.</p>
+                <div id="jellyfinUsers" class="grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="traktModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div id="traktTitle" style="font-weight:700;">Trakt accounts</div>
+                <button id="btnCloseTrakt">Close</button>
+            </div>
+            <div class="modal-body">
+                <p id="traktHelper" class="muted">Attiva o disattiva lo scrobbling per ciascun account collegato.</p>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                    <button id="btnAddTrakt">Add Trakt account</button>
+                    <button id="btnReloadTrakt">Reload accounts</button>
+                </div>
+                <div id="traktNotice" class="muted" style="margin-bottom:10px; display:none;"></div>
+                <div id="traktAccounts" class="grid"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let translations = {};
         let currentLang = 'en';
@@ -131,6 +149,7 @@
         let contentItems = [];
         let contentFilter = 'all';
         let alphaFilter = '';
+        let recentItems = [];
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -178,12 +197,18 @@
             document.getElementById('brandSubtitle').textContent = t('subtitle');
             document.getElementById('btnRefresh').textContent = t('button.refresh');
             document.getElementById('btnSync').textContent = t('button.sync');
+            document.getElementById('btnJellyfinModal').textContent = t('button.jellyfinModal');
+            document.getElementById('btnTraktModal').textContent = t('button.traktModal');
             document.getElementById('jellyfinTitle').textContent = t('panel.jellyfinTitle');
             document.getElementById('jellyfinHelper').textContent = t('panel.jellyfinHelper');
             document.getElementById('traktTitle').textContent = t('panel.traktTitle');
             document.getElementById('traktHelper').textContent = t('panel.traktHelper');
+            document.getElementById('btnCloseJellyfin').textContent = t('modal.close');
             document.getElementById('btnAddTrakt').textContent = t('button.addAccount');
             document.getElementById('btnReloadTrakt').textContent = t('button.reloadAccounts');
+            document.getElementById('btnCloseTrakt').textContent = t('modal.close');
+            document.getElementById('recentTitle').textContent = t('panel.recentTitle');
+            document.getElementById('recentHelper').textContent = t('panel.recentHelper');
             document.getElementById('contentTitle').textContent = t('panel.contentTitle');
             document.getElementById('contentHelper').textContent = t('content.helper');
             document.getElementById('search').placeholder = t('search.placeholder');
@@ -240,6 +265,7 @@
                             body: JSON.stringify({ user_id: uid, enabled: e.target.checked })
                         });
                         await loadSummary();
+                        await loadRecent();
                     } catch (err) {
                         e.target.checked = !e.target.checked;
                         alert(t('label.jellyfinToggleError'));
@@ -253,6 +279,60 @@
             const data = await r.json();
             jellyfinUsers = data.users || [];
             renderJellyfinUsers();
+        }
+
+        function renderRecent() {
+            const container = document.getElementById('recentList');
+            if (!recentItems.length) {
+                container.innerHTML = `<div class="muted">${t('label.noRecent')}</div>`;
+                return;
+            }
+            container.innerHTML = recentItems.map(it => {
+                const subtitleParts = [];
+                if (it.type === 'episode') {
+                    const season = it.seasonIndex ? `S${String(it.seasonIndex).padStart(2, '0')}` : '';
+                    const ep = it.episodeIndex ? `E${String(it.episodeIndex).padStart(2, '0')}` : '';
+                    const serie = it.seriesName || '';
+                    subtitleParts.push([season, ep].filter(Boolean).join(''));
+                    subtitleParts.push(serie);
+                } else {
+                    subtitleParts.push(it.year || '');
+                }
+                const dateStr = it.date ? new Date(it.date * 1000).toLocaleString() : '';
+                const thumb = it.thumb ? `<img src="${it.thumb}" alt="" style="width:70px; height:100px; object-fit:cover; border-radius:8px;">` : `<span class="muted">${t('label.noPoster')}</span>`;
+                return `<div class="card" style="padding:10px; gap:10px; align-items:center; width:240px;">
+          ${thumb}
+          <div class="meta" style="padding:0; gap:4px;">
+            <div class="title">${escapeHtml(it.title || it.seriesName || '')}</div>
+            <div class="muted">${escapeHtml(subtitleParts.filter(Boolean).join(' · '))}</div>
+            <div class="muted" style="font-size:12px;">${escapeHtml(t('label.recentAt', { date: dateStr }))}</div>
+            <div class="muted" style="font-size:12px;">${escapeHtml(it.userName || '')}</div>
+          </div>
+        </div>`;
+            }).join('');
+        }
+
+        async function loadRecent() {
+            const r = await fetch('/api/recent');
+            const data = await r.json();
+            recentItems = data.items || [];
+            renderRecent();
+        }
+
+        function openJellyfinModal() {
+            document.getElementById('jellyfinModal').style.display = 'flex';
+        }
+
+        function closeJellyfinModal() {
+            document.getElementById('jellyfinModal').style.display = 'none';
+        }
+
+        function openTraktModal() {
+            document.getElementById('traktModal').style.display = 'flex';
+        }
+
+        function closeTraktModal() {
+            document.getElementById('traktModal').style.display = 'none';
         }
 
         // Content filters list rendering
@@ -586,6 +666,7 @@
             await fetch('/api/refresh', { method: 'POST' });
             await loadSummary();
             await loadJellyfinUsers();
+            await loadRecent();
             await loadContentItems();
         });
 
@@ -596,16 +677,23 @@
         document.getElementById('btnSelectAll').addEventListener('click', () => bulkApply(true));
         document.getElementById('btnDeselectAll').addEventListener('click', () => bulkApply(false));
         document.getElementById('search').addEventListener('input', renderContentList);
+        document.getElementById('btnJellyfinModal').addEventListener('click', () => { loadJellyfinUsers(); openJellyfinModal(); });
+        document.getElementById('btnTraktModal').addEventListener('click', () => { loadTraktAccounts(); openTraktModal(); });
+        document.getElementById('btnCloseJellyfin').addEventListener('click', closeJellyfinModal);
+        document.getElementById('btnCloseTrakt').addEventListener('click', closeTraktModal);
         document.getElementById('langSelect').addEventListener('change', async (e) => {
             await loadLang(e.target.value);
             await loadSummary();
             await loadJellyfinUsers();
+            await loadRecent();
             await loadTraktAccounts();
             await loadContentItems();
         });
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('deviceModal').addEventListener('click', (e) => { if (e.target === document.getElementById('deviceModal')) closeDeviceModal(); });
+        document.getElementById('jellyfinModal').addEventListener('click', (e) => { if (e.target === document.getElementById('jellyfinModal')) closeJellyfinModal(); });
+        document.getElementById('traktModal').addEventListener('click', (e) => { if (e.target === document.getElementById('traktModal')) closeTraktModal(); });
         document.getElementById('filterAll').addEventListener('click', () => { contentFilter = 'all'; renderContentList(); });
         document.getElementById('filterMovies').addEventListener('click', () => { contentFilter = 'movies'; renderContentList(); });
         document.getElementById('filterShows').addEventListener('click', () => { contentFilter = 'shows'; renderContentList(); });
@@ -616,6 +704,7 @@
             await loadLang(storedLang);
             await loadSummary();
             await loadJellyfinUsers();
+            await loadRecent();
             await loadTraktAccounts();
             await loadContentItems();
         })();

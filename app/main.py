@@ -159,6 +159,23 @@ def _gather_completed_events() -> List[Dict[str, Any]]:
     return events
 
 
+def _recent_completed_events(limit: int = 5) -> List[Dict[str, Any]]:
+    items: List[Dict[str, Any]] = []
+    for user_id, evs in cache.user_history.items():
+        if not _is_user_selected(user_id):
+            continue
+        user_name = cache.users.get(user_id, "")
+        for ev in evs:
+            if not ev.get("completed") or not ev.get("date"):
+                continue
+            out = dict(ev)
+            out["userId"] = user_id
+            out["userName"] = user_name
+            items.append(out)
+    items.sort(key=lambda e: float(e.get("date") or 0.0), reverse=True)
+    return items[:limit]
+
+
 async def refresh_cache(force: bool = False) -> None:
     """Pull users + history from Jellyfin only."""
     if not force and not cache.is_stale(REFRESH_MINUTES):
@@ -458,6 +475,14 @@ async def api_toggle_user(payload: Dict[str, Any] = Body(...)):
             "initialized": jellyfin_selection_initialized,
         }
     )
+
+
+@app.get("/api/recent")
+async def api_recent():
+    """Return recent completed items across selected Jellyfin users."""
+    await refresh_cache(force=False)
+    items = _recent_completed_events(limit=5)
+    return JSONResponse({"items": items})
 
 
 @app.post("/api/refresh")
