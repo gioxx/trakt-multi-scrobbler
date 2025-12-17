@@ -143,6 +143,8 @@
         </div>
     </div>
 
+    <div id="toast" style="position:fixed; right:16px; bottom:16px; background:#132033; color:#e9eef5; padding:10px 12px; border-radius:10px; border:1px solid #1f2c44; box-shadow:0 4px 14px rgba(0,0,0,0.35); display:none; z-index:9999; min-width:200px; max-width:320px;"></div>
+
     <script>
         let translations = {};
         let currentLang = 'en';
@@ -158,6 +160,22 @@
         let alphaFilter = '';
         let recentItems = [];
         let accountFilter = '';
+        let toastTimer = null;
+
+        function showStatus(message, type = 'info') {
+            const el = document.getElementById('toast');
+            if (!el) return;
+            el.textContent = message;
+            const color = type === 'error' ? '#3b1b1b' : '#132033';
+            const border = type === 'error' ? '#7a2c2c' : '#1f2c44';
+            el.style.background = color;
+            el.style.borderColor = border;
+            el.style.display = 'block';
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                el.style.display = 'none';
+            }, 2600);
+        }
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -276,6 +294,7 @@
                         });
                         await loadSummary();
                         await loadRecent();
+                        showStatus(t('status.jellyfinSaved'));
                     } catch (err) {
                         e.target.checked = !e.target.checked;
                         alert(t('label.jellyfinToggleError'));
@@ -382,26 +401,42 @@
             container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
                 cb.addEventListener('change', async (e) => {
                     const username = e.target.getAttribute('data-username');
-                    await fetch('/api/trakt/accounts/toggle', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, enabled: e.target.checked })
-                    });
-                    await loadTraktAccounts();
-                    await loadContentItems();
+                    cb.disabled = true;
+                    try {
+                        const resp = await fetch('/api/trakt/accounts/toggle', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username, enabled: e.target.checked })
+                        });
+                        if (!resp.ok) throw new Error('save_failed');
+                        showStatus(t('status.traktSaved'));
+                        await loadTraktAccounts();
+                        await loadContentItems();
+                    } catch (err) {
+                        e.target.checked = !e.target.checked;
+                        showStatus(t('status.saveError'), 'error');
+                    } finally {
+                        cb.disabled = false;
+                    }
                 });
             });
 
             container.querySelectorAll('button[data-delete]').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const username = btn.getAttribute('data-delete');
-                    await fetch('/api/trakt/accounts/delete', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username })
-                    });
-                    await loadTraktAccounts();
-                    await loadContentItems();
+                    try {
+                        const resp = await fetch('/api/trakt/accounts/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username })
+                        });
+                        if (!resp.ok) throw new Error('delete_failed');
+                        showStatus(t('status.traktDeleted'));
+                        await loadTraktAccounts();
+                        await loadContentItems();
+                    } catch (err) {
+                        showStatus(t('status.saveError'), 'error');
+                    }
                 });
             });
         }
@@ -430,6 +465,9 @@
                 accountSel.value = '';
                 accountFilter = '';
             }
+            if (accountFilter && traktAccounts.some(a => a.username === accountFilter)) {
+                bulkSel.value = accountFilter;
+            }
         }
 
         function renderContentList() {
@@ -454,7 +492,7 @@
                 .filter(i => {
                     if (!accountFilter) return true;
                     const accs = i.accounts || [];
-                    return accs.some(a => a.username === accountFilter && a.ruleEnabled);
+                    return accs.some(a => a.username === accountFilter);
                 })
                 .filter(i => {
                     if (!alphaFilter) return true;
@@ -492,11 +530,21 @@
                     const pk = e.target.getAttribute('data-provider-key');
                     const gk = e.target.getAttribute('data-group-key');
                     const typ = e.target.getAttribute('data-type') || '';
-                    await fetch('/api/trakt/items/set', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, providerKey: pk, groupKey: gk, type: typ, enabled: e.target.checked })
-                    });
+                    cb.disabled = true;
+                    try {
+                        const resp = await fetch('/api/trakt/items/set', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username, providerKey: pk, groupKey: gk, type: typ, enabled: e.target.checked })
+                        });
+                        if (!resp.ok) throw new Error('save_failed');
+                        showStatus(t('status.saved'));
+                    } catch (err) {
+                        e.target.checked = !e.target.checked;
+                        showStatus(t('status.saveError'), 'error');
+                    } finally {
+                        cb.disabled = false;
+                    }
                 });
             });
         }
@@ -557,6 +605,11 @@
                         return first >= '0' && first <= '9';
                     }
                     return first === alphaFilter;
+                })
+                .filter(i => {
+                    if (!accountFilter) return true;
+                    const accs = i.accounts || [];
+                    return accs.some(a => a.username === account);
                 });
             if (!targets.length) return;
             // Optimistic update locally
@@ -565,18 +618,24 @@
             });
             renderOrphans();
             renderContentList();
-            await Promise.all(targets.map(it => fetch('/api/trakt/items/set', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: account,
-                    providerKey: it.providerKey || "",
-                    groupKey: it.groupKey || "",
-                    type: it.type || "",
-                    enabled: enable
-                })
-            })));
-            await loadContentItems();
+            try {
+                await Promise.all(targets.map(it => fetch('/api/trakt/items/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: account,
+                        providerKey: it.providerKey || "",
+                        groupKey: it.groupKey || "",
+                        type: it.type || "",
+                        enabled: enable
+                    })
+                })));
+                showStatus(enable ? t('status.bulkAssigned') : t('status.bulkCleared'));
+            } catch (e) {
+                showStatus(t('status.saveError'), 'error');
+            } finally {
+                await loadContentItems();
+            }
         }
 
         function openDeviceModal() {
@@ -670,8 +729,19 @@
             try {
                 const r = await fetch('/api/trakt/sync', { method: 'POST' });
                 const data = await r.json();
-                const msg = JSON.stringify(data, null, 2);
-                alert(t('label.syncResult') + '\n' + msg);
+                const results = data.results || {};
+                const parts = Object.entries(results).map(([user, res]) => {
+                    if (res.skipped) return `${user}: ${t('status.syncSkipped', { reason: res.reason || '' })}`;
+                    if (res.ok) {
+                        const m = res.sent?.movies || 0;
+                        const e = res.sent?.episodes || 0;
+                        const miss = res.skipped_missing_ids || 0;
+                        const dis = res.skipped_disallowed || 0;
+                        return `${user}: ${m}m/${e}e, ${miss} missing ids, ${dis} unassigned`;
+                    }
+                    return `${user}: ${t('status.syncError')}`;
+                });
+                showStatus(parts.join(' | ') || t('status.syncDone'));
             } catch (e) {
                 alert('Failed to sync.');
             } finally {
@@ -691,15 +761,27 @@
         }
 
         document.getElementById('btnRefresh').addEventListener('click', async () => {
-            await fetch('/api/refresh', { method: 'POST' });
-            await loadSummary();
-            await loadJellyfinUsers();
-            await loadRecent();
-            await loadContentItems();
+            const btn = document.getElementById('btnRefresh');
+            btn.disabled = true;
+            try {
+                await fetch('/api/refresh', { method: 'POST' });
+                await loadSummary();
+                await loadJellyfinUsers();
+                await loadRecent();
+                await loadContentItems();
+                showStatus(t('status.refreshed'));
+            } catch (e) {
+                showStatus(t('status.refreshError'), 'error');
+            } finally {
+                btn.disabled = false;
+            }
         });
 
         document.getElementById('btnSync').addEventListener('click', triggerSync);
-        document.getElementById('btnReloadTrakt').addEventListener('click', loadTraktAccounts);
+        document.getElementById('btnReloadTrakt').addEventListener('click', async () => {
+            await loadTraktAccounts();
+            showStatus(t('status.traktReloaded'));
+        });
         document.getElementById('btnAddTrakt').addEventListener('click', startDeviceFlow);
         document.getElementById('btnPollNow').addEventListener('click', pollDeviceFlow);
         document.getElementById('btnSelectAll').addEventListener('click', () => bulkApply(true));
@@ -707,6 +789,12 @@
         document.getElementById('search').addEventListener('input', renderContentList);
         document.getElementById('accountFilter').addEventListener('change', (e) => {
             accountFilter = e.target.value || '';
+            if (accountFilter) {
+                const bulkSel = document.getElementById('bulkAccount');
+                if ([...bulkSel.options].some(o => o.value === accountFilter)) {
+                    bulkSel.value = accountFilter;
+                }
+            }
             renderContentList();
         });
         document.getElementById('btnJellyfinModal').addEventListener('click', () => { loadJellyfinUsers(); openJellyfinModal(); });
