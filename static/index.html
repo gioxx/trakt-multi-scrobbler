@@ -784,7 +784,7 @@
             const trakt = s.traktConfigured ? t('label.traktOn') : t('label.traktOff');
             const movies = s.movies ?? '0';
             const shows = s.shows ?? '0';
-            document.getElementById('summary').textContent = `${t('header.summaryIcon')} ${t('label.libraryCounts', { movies, shows })} · ${t('summary.updated', { date })}`;
+            document.getElementById('summary').textContent = `${t('label.libraryCounts', { movies, shows })} · ${t('header.summaryIcon')} ${t('summary.updated', { date })}`;
             document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModal')} ${t('label.usersSuffix')} (${s.users ?? 0})`;
             document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')} (${trakt})`;
         }
