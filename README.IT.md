@@ -2,7 +2,7 @@
 
 [English version](README.md)
 
-![Logo](static/scrobbler_icon.webp)
+<img src="static/scrobbler_icon.webp" alt="Trakt Multi-Scrobbler Logo" width="256" />
 
 Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account Trakt. Supporta più utenti per entrambi i servizi, regole per serie/film, tema chiaro/scuro e gestione account Trakt via device flow.
 
@@ -36,7 +36,7 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
    Opzionali:
    ```bash
    export TRAKT_STATE_PATH="trakt_accounts.json"     # percorso stato account Trakt
-   export JELLYFIN_STATE_PATH="jellyfin_state.json"  # percorso selezione utenti Jellyfin (default: stessa cartella di TRAKT_STATE_PATH)
+   export JELLYFIN_STATE_PATH="jellyfin_state.json"  # facoltativo; di default usa la stessa cartella di TRAKT_STATE_PATH
    export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
    export REFRESH_MINUTES="30"                       # polling Jellyfin
    ```
@@ -48,11 +48,39 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
    ```
    Apri http://localhost:8089.
 
-4) **Avvio con Docker**
+4) **Avvio con Docker (immagine già pronta)**
+   - GitHub Container Registry  
+     ```bash
+     docker run -d --name trakt-multi-scrobbler \
+       -p 8089:8089 \
+       -e JELLYFIN_URL="https://il-tuo-jellyfin" \
+       -e JELLYFIN_APIKEY="API_KEY_JELLYFIN" \
+       -e TRAKT_CLIENT_ID="CLIENT_ID_TRAKT" \
+       -e TRAKT_CLIENT_SECRET="CLIENT_SECRET_TRAKT" \
+       -e TRAKT_STATE_PATH="/data/trakt_accounts.json" \
+       -e JELLYFIN_STATE_PATH="/data/jellyfin_state.json" \
+       -v tms-data:/data \
+       ghcr.io/gioxx/trakt-multi-scrobbler:latest
+     ```
+   - Docker Hub  
+     ```bash
+     docker run -d --name trakt-multi-scrobbler \
+       -p 8089:8089 \
+       -e JELLYFIN_URL="https://il-tuo-jellyfin" \
+       -e JELLYFIN_APIKEY="API_KEY_JELLYFIN" \
+       -e TRAKT_CLIENT_ID="CLIENT_ID_TRAKT" \
+       -e TRAKT_CLIENT_SECRET="CLIENT_SECRET_TRAKT" \
+       -e TRAKT_STATE_PATH="/data/trakt_accounts.json" \
+       -e JELLYFIN_STATE_PATH="/data/jellyfin_state.json" \
+       -v tms-data:/data \
+       gfsolone/trakt-multi-scrobbler:latest
+     ```
+
+5) **Avvio con Docker Compose (file del repo)**
    ```bash
    docker compose up --build
    ```
-   Usa il volume nominato previsto in `docker-compose.yml` (`/data`). Se vuoi inizializzare:
+   Usa il volume nominato previsto in `docker-compose.yml` (`/data`). Se vuoi inizializzarlo:
    ```bash
    docker compose run --rm trakt-multi-scrobbler sh -c 'cat > /data/trakt_accounts.json <<EOF\n{ \"accounts\": [], \"last_synced\": {} }\nEOF'
    ```
@@ -78,3 +106,4 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
 - I timestamp inviati a Trakt sono quelli originali di Jellyfin.
 - I token Trakt vengono refreshati automaticamente.
 - Localizzazione: i file sono in `static/locales/en.json` e `static/locales/it.json`. Per aggiungere una lingua crea `static/locales/<codice>.json` e aggiungi l’opzione al select lingua in `static/index.html`.
+- Se usi Plex come principale ma hai anche Jellyfin, puoi abbinarlo a `luigi311/jellyplex-watched` (https://github.com/luigi311/JellyPlex-Watched) per tenere allineati Jellyfin e Plex.
