@@ -22,8 +22,7 @@
             <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin User(s)</button>
             <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt User(s)</button>
             <div id="summary" class="pill">ℹ️ Loading…</div>
-            <button id="btnBackupDownload" class="pill" style="cursor:pointer;" title="Backup">💾</button>
-            <button id="btnBackupRestore" class="pill" style="cursor:pointer;" title="Restore">📂</button>
+            <button id="btnBackup" class="pill" style="cursor:pointer;" title="Backup">💾</button>
             <input type="file" id="backupFile" accept=".zip" style="display:none;">
             <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
                 <option value="en">🌐 EN</option>
@@ -37,16 +36,6 @@
     </header>
 
     <main>
-        <section class="panel">
-            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
-                <div>
-                    <div id="recentTitle" style="font-weight:700; font-size:17px;">Ultimi visti</div>
-                    <div id="recentHelper" class="muted">Contenuti appena visti dagli utenti Jellyfin selezionati.</div>
-                </div>
-            </div>
-            <div id="recentList" class="grid"></div>
-        </section>
-
         <section id="orphansSection" class="panel" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
@@ -145,6 +134,26 @@
                 </div>
                 <div id="traktNotice" class="muted" style="margin-bottom:10px; display:none;"></div>
                 <div id="traktAccounts" class="grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="backupModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div id="backupTitle" style="font-weight:700;">Backup &amp; Restore</div>
+                <button id="btnCloseBackup">Close</button>
+            </div>
+            <div class="modal-body">
+                <p id="backupHelper" class="muted">Scarica la configurazione o ripristina da un file ZIP.</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+                    <button id="btnBackupDownload" class="pill">💾 <span id="backupDownloadLabel">Backup</span></button>
+                    <button id="btnBackupRestore" class="pill">📂 <span id="backupRestoreLabel">Restore</span></button>
+                </div>
+                <input type="file" id="backupFile" accept=".zip" style="display:none;">
+                <div class="muted" style="font-size:12px;">
+                    <span id="backupHint">Il backup include token Trakt (JSON), regole/DB SQLite e stato Jellyfin.</span>
+                </div>
             </div>
         </div>
     </div>
@@ -395,6 +404,14 @@
 
         function closeTraktModal() {
             document.getElementById('traktModal').style.display = 'none';
+        }
+
+        function openBackupModal() {
+            document.getElementById('backupModal').style.display = 'flex';
+        }
+
+        function closeBackupModal() {
+            document.getElementById('backupModal').style.display = 'none';
         }
 
         async function downloadBackup() {
@@ -891,6 +908,7 @@
         document.getElementById('btnTheme').addEventListener('click', () => {
             applyTheme(currentTheme === 'light' ? 'dark' : 'light');
         });
+        document.getElementById('btnBackup').addEventListener('click', openBackupModal);
         document.getElementById('btnBackupDownload').addEventListener('click', downloadBackup);
         document.getElementById('btnBackupRestore').addEventListener('click', () => {
             document.getElementById('backupFile').click();
@@ -904,6 +922,7 @@
         });
         document.getElementById('btnCloseJellyfin').addEventListener('click', closeJellyfinModal);
         document.getElementById('btnCloseTrakt').addEventListener('click', closeTraktModal);
+        document.getElementById('btnCloseBackup').addEventListener('click', closeBackupModal);
         document.getElementById('langSelect').addEventListener('change', async (e) => {
             await loadLang(e.target.value);
             await loadSummary();
@@ -911,14 +930,21 @@
             await loadRecent();
             await loadTraktAccounts();
             await loadContentItems();
+            document.getElementById('btnBackup').title = t('button.backup');
             document.getElementById('btnBackupDownload').title = t('button.backup');
             document.getElementById('btnBackupRestore').title = t('button.restore');
+            document.getElementById('backupTitle').textContent = t('backup.title');
+            document.getElementById('backupHelper').textContent = t('backup.helper');
+            document.getElementById('backupHint').textContent = t('backup.hint');
+            document.getElementById('backupDownloadLabel').textContent = t('button.backup');
+            document.getElementById('backupRestoreLabel').textContent = t('button.restore');
         });
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('deviceModal').addEventListener('click', (e) => { if (e.target === document.getElementById('deviceModal')) closeDeviceModal(); });
         document.getElementById('jellyfinModal').addEventListener('click', (e) => { if (e.target === document.getElementById('jellyfinModal')) closeJellyfinModal(); });
         document.getElementById('traktModal').addEventListener('click', (e) => { if (e.target === document.getElementById('traktModal')) closeTraktModal(); });
+        document.getElementById('backupModal').addEventListener('click', (e) => { if (e.target === document.getElementById('backupModal')) closeBackupModal(); });
         document.getElementById('filterAll').addEventListener('click', () => { contentFilter = 'all'; renderContentList(); });
         document.getElementById('filterMovies').addEventListener('click', () => { contentFilter = 'movies'; renderContentList(); });
         document.getElementById('filterShows').addEventListener('click', () => { contentFilter = 'shows'; renderContentList(); });
@@ -928,8 +954,14 @@
             const storedLang = localStorage.getItem('lang') || 'en';
             initTheme();
             await loadLang(storedLang);
+            document.getElementById('btnBackup').title = t('button.backup');
             document.getElementById('btnBackupDownload').title = t('button.backup');
             document.getElementById('btnBackupRestore').title = t('button.restore');
+            document.getElementById('backupTitle').textContent = t('backup.title');
+            document.getElementById('backupHelper').textContent = t('backup.helper');
+            document.getElementById('backupHint').textContent = t('backup.hint');
+            document.getElementById('backupDownloadLabel').textContent = t('button.backup');
+            document.getElementById('backupRestoreLabel').textContent = t('button.restore');
             await loadSummary();
             await loadJellyfinUsers();
             await loadRecent();

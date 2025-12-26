@@ -93,6 +93,7 @@
   "history.noItems": "No history yet.",
   "backup.title": "Backup & Restore",
   "backup.helper": "Download your configuration or restore it on a new install.",
+  "backup.hint": "Backup includes Trakt tokens (JSON), SQLite rules and Jellyfin state.",
   "status.accountLoadError": "Could not load Trakt account page.",
   "account.title": "Trakt account",
   "account.subtitle": "Content selected for {user}.",
@@ -110,7 +111,8 @@
   "account.loading": "Loading account…",
   "account.back": "← Overview",
   "account.summary": "{user}: {status}",
-  "account.remove": "Remove from this account",
-  "account.removed": "Removed.",
-  "account.removeError": "Could not remove."
+  "account.remove": "Stop syncing to this account",
+  "account.removed": "Association removed.",
+  "account.removeError": "Could not remove association.",
+  "account.syncNow": "Sync this account to Trakt now"
 }

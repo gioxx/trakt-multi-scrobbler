@@ -106,11 +106,13 @@
   "account.loading": "Caricamento account…",
   "account.back": "← Panoramica",
   "account.summary": "{user}: {status}",
-  "account.remove": "Rimuovi da questo account",
-  "account.removed": "Rimosso.",
-  "account.removeError": "Impossibile rimuovere.",
+  "account.remove": "Smetti di sincronizzare su questo account",
+  "account.removed": "Associazione rimossa.",
+  "account.removeError": "Impossibile rimuovere l'associazione.",
+  "account.syncNow": "Sincronizza ora questo account su Trakt",
   "button.backup": "Backup",
   "button.restore": "Ripristina",
   "backup.title": "Backup & Ripristino",
-  "backup.helper": "Scarica la configurazione o ripristinala su una nuova installazione."
+  "backup.helper": "Scarica la configurazione o ripristinala su una nuova installazione.",
+  "backup.hint": "Il backup include token Trakt (JSON), regole SQLite e stato Jellyfin."
 }
