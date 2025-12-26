@@ -166,6 +166,22 @@
                 <div class="muted" style="font-size:12px;">
                     <span id="backupHint">Il backup include token Trakt (JSON), regole/DB SQLite e stato Jellyfin.</span>
                 </div>
+                <div style="margin-top:14px; padding-top:10px; border-top:1px solid var(--border);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+                        <div>
+                            <div id="cacheTitle" style="font-weight:700;">Poster cache</div>
+                            <div id="cacheHelper" class="muted" style="font-size:12px;">Info cache locandine e refresh forzato.</div>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <button id="btnCacheRefresh" class="pill">↻ <span id="cacheRefreshLabel">Refresh</span></button>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:13px;">
+                        <div class="pill" id="cacheLast">—</div>
+                        <div class="pill" id="cacheFiles">—</div>
+                        <div class="pill" id="cacheSize">—</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -462,6 +478,41 @@
                 await loadContentItems();
             } catch (e) {
                 showStatus(t('status.restoreError'), 'error');
+            }
+        }
+
+        async function loadCacheStatus() {
+            try {
+                const r = await fetch('/api/thumbs/status');
+                const data = await r.json();
+                const last = data.lastRefresh ? new Date(data.lastRefresh * 1000).toLocaleString() : t('label.never');
+                document.getElementById('cacheLast').textContent = t('cache.last', { date: last });
+                document.getElementById('cacheFiles').textContent = t('cache.files', { count: data.files || 0 });
+                const sizeMb = data.size ? (data.size / (1024 * 1024)).toFixed(1) : '0';
+                document.getElementById('cacheSize').textContent = t('cache.size', { mb: sizeMb });
+            } catch (e) {
+                document.getElementById('cacheLast').textContent = t('cache.statusError');
+                document.getElementById('cacheFiles').textContent = '—';
+                document.getElementById('cacheSize').textContent = '—';
+            }
+        }
+
+        async function refreshCacheThumbs() {
+            const btn = document.getElementById('btnCacheRefresh');
+            btn.disabled = true;
+            const orig = btn.textContent;
+            btn.textContent = t('cache.refreshing');
+            try {
+                const r = await fetch('/api/thumbs/refresh', { method: 'POST' });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) throw new Error(data.error || 'refresh_failed');
+                showStatus(t('cache.refreshed'), 'success');
+                await loadCacheStatus();
+            } catch (e) {
+                showStatus(t('cache.refreshError'), 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = orig;
             }
         }
 
@@ -920,11 +971,12 @@
         document.getElementById('btnTheme').addEventListener('click', () => {
             applyTheme(currentTheme === 'light' ? 'dark' : 'light');
         });
-            document.getElementById('btnBackup').addEventListener('click', openBackupModal);
-            document.getElementById('btnBackupDownload').addEventListener('click', downloadBackup);
-            document.getElementById('btnBackupRestore').addEventListener('click', () => {
-                document.getElementById('backupFile').click();
-            });
+        document.getElementById('btnBackup').addEventListener('click', openBackupModal);
+        document.getElementById('btnBackupDownload').addEventListener('click', downloadBackup);
+        document.getElementById('btnBackupRestore').addEventListener('click', () => {
+            document.getElementById('backupFile').click();
+        });
+        document.getElementById('btnCacheRefresh').addEventListener('click', refreshCacheThumbs);
         document.getElementById('backupFile').addEventListener('change', async (e) => {
             const file = e.target.files && e.target.files[0];
             if (file) {
@@ -951,6 +1003,10 @@
             document.getElementById('backupHint').textContent = t('backup.hint');
             document.getElementById('backupDownloadLabel').textContent = t('button.backup');
             document.getElementById('backupRestoreLabel').textContent = t('button.restore');
+            document.getElementById('cacheTitle').textContent = t('cache.title');
+            document.getElementById('cacheHelper').textContent = t('cache.helper');
+            document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
+            await loadCacheStatus();
         });
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
@@ -976,11 +1032,15 @@
             document.getElementById('backupHint').textContent = t('backup.hint');
             document.getElementById('backupDownloadLabel').textContent = t('button.backup');
             document.getElementById('backupRestoreLabel').textContent = t('button.restore');
+            document.getElementById('cacheTitle').textContent = t('cache.title');
+            document.getElementById('cacheHelper').textContent = t('cache.helper');
+            document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
             await loadSummary();
             await loadJellyfinUsers();
             await loadRecent();
             await loadTraktAccounts();
             await loadContentItems();
+            await loadCacheStatus();
         })();
     </script>
 </body>

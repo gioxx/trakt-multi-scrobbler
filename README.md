@@ -46,6 +46,8 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
    export TRAKT_STATE_PATH="trakt_accounts.json"     # Trakt state path
    export TRAKT_DB_PATH="trakt_sync.db"              # optional; SQLite sync state (defaults next to TRAKT_STATE_PATH)
    export JELLYFIN_STATE_PATH="jellyfin_state.json"  # optional; defaults to same dir as TRAKT_STATE_PATH
+   export THUMB_CACHE_DIR="/data/thumb_cache"        # optional; local cache for posters (defaults next to TRAKT_STATE_PATH)
+   export THUMB_CACHE_TTL_HOURS="72"                 # optional; refresh thumb cache every N hours
    export WATCH_THRESHOLD="0.95"                     # completion threshold (0-1)
    export REFRESH_MINUTES="30"                       # Jellyfin polling interval
    ```

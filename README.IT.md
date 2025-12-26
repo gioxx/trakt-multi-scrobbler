@@ -46,6 +46,8 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
    export TRAKT_STATE_PATH="trakt_accounts.json"     # percorso stato account Trakt
    export TRAKT_DB_PATH="trakt_sync.db"              # facoltativo; SQLite con regole di sync (di default accanto a TRAKT_STATE_PATH)
    export JELLYFIN_STATE_PATH="jellyfin_state.json"  # facoltativo; di default usa la stessa cartella di TRAKT_STATE_PATH
+   export THUMB_CACHE_DIR="/data/thumb_cache"        # facoltativo; cache locale poster (default accanto a TRAKT_STATE_PATH)
+   export THUMB_CACHE_TTL_HOURS="72"                 # facoltativo; aggiorna la cache poster ogni N ore
    export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
    export REFRESH_MINUTES="30"                       # polling Jellyfin
    ```
