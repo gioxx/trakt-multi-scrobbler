@@ -36,6 +36,16 @@
     </header>
 
     <main>
+        <section class="panel">
+            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
+                <div>
+                    <div id="recentTitle" style="font-weight:700; font-size:17px;">Ultimi visti</div>
+                    <div id="recentHelper" class="muted">Contenuti appena visti dagli utenti Jellyfin selezionati.</div>
+                </div>
+            </div>
+            <div id="recentList" class="grid"></div>
+        </section>
+
         <section id="orphansSection" class="panel" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
