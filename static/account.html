@@ -192,6 +192,8 @@
             const enabled = accountData ? !!accountData.enabled : false;
             const statusLabel = enabled ? t('account.statusEnabled') : t('account.statusDisabled');
             statusPill.textContent = statusLabel;
+            statusPill.style.cursor = 'pointer';
+            statusPill.setAttribute('data-enabled', enabled ? '1' : '0');
             const last = accountData && accountData.lastSynced ? new Date(accountData.lastSynced * 1000).toLocaleString() : t('label.never');
             lastSyncPill.textContent = t('account.lastSync', { date: last });
             const movies = accountData && accountData.counts ? accountData.counts.movies || 0 : 0;
@@ -343,6 +345,30 @@
                 showStatus(t('status.syncError'), 'error');
             } finally {
                 btn.disabled = false;
+            }
+        });
+
+        document.getElementById('statusPill').addEventListener('click', async () => {
+            if (!accountData) return;
+            const current = !!accountData.enabled;
+            const proceed = window.confirm(current ? t('account.disableConfirm') : t('account.enableConfirm'));
+            if (!proceed) return;
+            const pill = document.getElementById('statusPill');
+            pill.disabled = true;
+            try {
+                const r = await fetch('/api/trakt/accounts/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: accountData.username, enabled: !current })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) throw new Error(data.error || 'toggle_failed');
+                showStatus(t('status.traktSaved'), 'success');
+                await loadAccount();
+            } catch (e) {
+                showStatus(t('status.saveError'), 'error');
+            } finally {
+                pill.disabled = false;
             }
         });
 

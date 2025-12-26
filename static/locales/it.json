@@ -102,6 +102,8 @@
   "account.lastSync": "Ultima sincronizzazione: {date}",
   "account.statusEnabled": "Scrobbling attivo",
   "account.statusDisabled": "Scrobbling disattivo",
+  "account.enableConfirm": "Attivare lo scrobbling per questo account?",
+  "account.disableConfirm": "Disattivare lo scrobbling per questo account?",
   "account.loadError": "Impossibile caricare i dettagli dell'account.",
   "account.loading": "Caricamento account…",
   "account.back": "← Panoramica",
