@@ -182,9 +182,35 @@
             <div class="title">${escapeHtml(it.title || '')}</div>
             <div class="sub">${escapeHtml(subtitle)}</div>
             ${ruleLine}
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="pill" data-remove="${escapeHtml(it.ruleKey || '')}" style="background:#241014;">${t('account.remove')}</button>
+            </div>
           </div>
         </div>`;
             }).join('');
+
+            grid.querySelectorAll('button[data-remove]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const ruleKey = btn.getAttribute('data-remove');
+                    if (!ruleKey) return;
+                    btn.disabled = true;
+                    try {
+                        const r = await fetch(`/api/trakt/accounts/${encodeURIComponent(username)}/items/remove`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ruleKey })
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok || !data.ok) throw new Error(data.error || 'remove_failed');
+                        showStatus(t('account.removed'), 'success');
+                        await loadAccount();
+                    } catch (e) {
+                        showStatus(t('account.removeError'), 'error');
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            });
         }
 
         function renderMissing() {

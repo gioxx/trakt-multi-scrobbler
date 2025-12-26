@@ -101,5 +101,8 @@
   "account.loadError": "Impossibile caricare i dettagli dell'account.",
   "account.loading": "Caricamento account…",
   "account.back": "← Panoramica",
-  "account.summary": "{user}: {status}"
+  "account.summary": "{user}: {status}",
+  "account.remove": "Rimuovi da questo account",
+  "account.removed": "Rimosso.",
+  "account.removeError": "Impossibile rimuovere."
 }

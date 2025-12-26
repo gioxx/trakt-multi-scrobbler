@@ -482,3 +482,14 @@ class TraktService:
 
     def enabled_items(self, username: str) -> Dict[str, bool]:
         return dict(self.account_items.get(username, {}))
+
+    def remove_item_rule(self, username: str, key: str) -> bool:
+        if not username or not key:
+            return False
+        rules = self.account_items.get(username)
+        if not rules or key not in rules:
+            return False
+        rules.pop(key, None)
+        self.store.remove_item_rule(username, key)
+        self._save_state()
+        return True

@@ -118,9 +118,14 @@ class SyncStore:
                 INSERT INTO account_items (username, item_key, enabled)
                 VALUES (?, ?, ?)
                 ON CONFLICT(username, item_key) DO UPDATE SET enabled=excluded.enabled
-                """,
-                (username, key, 1 if enabled else 0),
-            )
+                    """,
+                    (username, key, 1 if enabled else 0),
+                )
+            conn.commit()
+
+    def remove_item_rule(self, username: str, key: str) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM account_items WHERE username=? AND item_key=?", (username, key))
             conn.commit()
 
     def import_account_items(self, items: Dict[str, Dict[str, bool]]) -> None:

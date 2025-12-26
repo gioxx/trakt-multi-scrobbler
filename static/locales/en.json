@@ -101,5 +101,8 @@
   "account.loadError": "Could not load account details.",
   "account.loading": "Loading account…",
   "account.back": "← Overview",
-  "account.summary": "{user}: {status}"
+  "account.summary": "{user}: {status}",
+  "account.remove": "Remove from this account",
+  "account.removed": "Removed.",
+  "account.removeError": "Could not remove."
 }

@@ -418,17 +418,31 @@ async def api_trakt_account_items(username: str):
     enabled_keys = [k for k, v in rules.items() if v]
     items: List[Dict[str, Any]] = []
     missing: List[Dict[str, Any]] = []
+    seen_canonical: Dict[str, Dict[str, Any]] = {}
 
     for key in enabled_keys:
         meta = _catalog_entry_for_key(key)
         if meta:
             entry = dict(meta)
             entry["ruleKey"] = key
-            items.append(entry)
+            canonical = ""
+            if entry.get("type") == "show" and entry.get("groupKey"):
+                canonical = str(entry.get("groupKey"))
+            elif entry.get("providerKey"):
+                canonical = str(entry.get("providerKey"))
+            else:
+                canonical = key
+            if canonical in seen_canonical:
+                # Prefer the groupKey rule for shows if duplicated.
+                existing = seen_canonical[canonical]
+                if entry.get("type") == "show" and entry.get("groupKey") == key:
+                    seen_canonical[canonical] = entry
+                continue
+            seen_canonical[canonical] = entry
         else:
             missing.append({"ruleKey": key})
 
-    items_sorted = sorted(items, key=lambda x: (x.get("type") or "", x.get("title") or ""))
+    items_sorted = sorted(seen_canonical.values(), key=lambda x: (x.get("type") or "", x.get("title") or ""))
     movies = [i for i in items_sorted if i.get("type") == "movie"]
     shows = [i for i in items_sorted if i.get("type") == "show"]
 
@@ -542,6 +556,22 @@ async def api_trakt_items_set(payload: Dict[str, Any] = Body(...)):
         key = gk or pk
     ok = trakt_service.set_item_rule(username, key, enabled)
     return JSONResponse({"ok": ok})
+
+
+@app.post("/api/trakt/accounts/{username}/items/remove")
+async def api_trakt_account_items_remove(username: str, payload: Dict[str, Any] = Body(...)):
+    """Remove a specific Trakt rule for an account (by rule key)."""
+    if not trakt_service or not trakt_service.ready:
+        return JSONResponse({"ok": False, "error": "trakt_not_configured"}, status_code=400)
+    rule_key = str(payload.get("ruleKey") or payload.get("rule_key") or "").strip()
+    if not rule_key:
+        return JSONResponse({"ok": False, "error": "missing_rule_key"}, status_code=400)
+    if username not in trakt_service.accounts:
+        return JSONResponse({"ok": False, "error": "unknown_account"}, status_code=404)
+    ok = trakt_service.remove_item_rule(username, rule_key)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "rule_not_found"}, status_code=404)
+    return JSONResponse({"ok": True})
 
 
 @app.get("/api/users")
