@@ -333,12 +333,12 @@ async def refresh_cache(force: bool = False) -> None:
         trakt_service.prune_rules(valid_keys)
 
 
-async def sync_trakt() -> Dict[str, Any]:
-    """Push completed Jellyfin events to enabled Trakt accounts."""
+async def sync_trakt(usernames: List[str] | None = None) -> Dict[str, Any]:
+    """Push completed Jellyfin events to enabled Trakt accounts (optionally filtered)."""
     if not trakt_service or not trakt_service.ready:
         return {"ok": False, "error": "trakt_not_configured"}
     events = _gather_completed_events()
-    return await trakt_service.sync_events(events)
+    return await trakt_service.sync_events(events, usernames=usernames)
 
 
 @app.on_event("startup")
@@ -489,6 +489,18 @@ async def api_trakt_sync():
     await refresh_cache(force=False)
     result = await sync_trakt()
     return JSONResponse(result)
+
+
+@app.post("/api/trakt/accounts/{username}/sync")
+async def api_trakt_sync_account(username: str):
+    await refresh_cache(force=False)
+    if not trakt_service or username not in (trakt_service.accounts or {}):
+        return JSONResponse({"ok": False, "error": "unknown_account"}, status_code=404)
+    result = await sync_trakt([username])
+    per_account = (result.get("results") or {}).get(username) if isinstance(result, dict) else None
+    if per_account is None:
+        return JSONResponse({"ok": False, "error": "no_result"}, status_code=400)
+    return JSONResponse({"ok": True, "result": per_account})
 
 
 @app.post("/api/trakt/device/start")

@@ -21,6 +21,7 @@
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
             <a href="/" class="pill" id="backLink" style="text-decoration:none;">← Overview</a>
             <div id="accountSummary" class="pill">—</div>
+            <button id="btnAccountSync" class="pill" style="cursor:pointer;">⇅</button>
             <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
                 <option value="en">🌐 EN</option>
                 <option value="it">🌐 IT</option>
@@ -54,6 +55,15 @@
                     <div id="selectedHelper" class="muted">Items currently scrobbling for this account.</div>
                 </div>
             </div>
+            <div class="row">
+                <input id="search" placeholder="Filter by title…" style="flex:1 1 320px;" />
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button id="filterAll" class="pill">All</button>
+                    <button id="filterMovies" class="pill">Movies</button>
+                    <button id="filterShows" class="pill">Series</button>
+                </div>
+            </div>
+            <div id="alphaBar" class="alpha-row"></div>
             <div id="itemGrid" class="grid"></div>
         </section>
 
@@ -75,6 +85,8 @@
         let currentLang = 'en';
         let accountData = null;
         let currentTheme = 'dark';
+        let typeFilter = 'all';
+        let alphaFilter = '';
         const username = decodeURIComponent((window.location.pathname.split('/').filter(Boolean).pop() || '').replace(/%2F/g, '/'));
 
         function escapeHtml(s) {
@@ -124,6 +136,23 @@
             applyTheme(prefersLight ? 'light' : 'dark');
         }
 
+        function renderAlphaBar() {
+            const bar = document.getElementById('alphaBar');
+            const letters = ['#'].concat('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
+            bar.innerHTML = letters.map(l => {
+                const active = alphaFilter === l ? 'active' : '';
+                return `<button class="pill ${active}" data-letter="${l}">${l}</button>`;
+            }).join('');
+            bar.querySelectorAll('button[data-letter]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const val = btn.getAttribute('data-letter');
+                    alphaFilter = alphaFilter === val ? '' : val;
+                    renderAlphaBar();
+                    renderItems();
+                });
+            });
+        }
+
         async function loadLang(lang) {
             currentLang = lang;
             try {
@@ -147,6 +176,15 @@
 
             document.getElementById('brandSubtitle').textContent = t('account.title');
             document.getElementById('backLink').textContent = t('account.back');
+            document.getElementById('selectedTitle').textContent = t('account.selectedTitle');
+            document.getElementById('selectedHelper').textContent = t('account.selectedHelper');
+            document.getElementById('missingTitle').textContent = t('account.missingTitle');
+            document.getElementById('missingHelper').textContent = t('account.missingHelper');
+            document.getElementById('search').placeholder = t('search.placeholder');
+            document.getElementById('filterAll').textContent = t('filter.all');
+            document.getElementById('filterMovies').textContent = t('filter.movies');
+            document.getElementById('filterShows').textContent = t('filter.shows');
+            document.getElementById('btnAccountSync').textContent = t('button.sync');
             title.textContent = t('account.title');
             const name = accountData && accountData.username ? accountData.username : username || '—';
             subtitle.textContent = t('account.subtitle', { user: name });
@@ -168,11 +206,43 @@
 
         function renderItems() {
             const grid = document.getElementById('itemGrid');
-            if (!accountData || !accountData.items || !accountData.items.length) {
+            if (!accountData || !accountData.items) {
                 grid.innerHTML = `<div class="muted">${t('account.noItems')}</div>`;
                 return;
             }
-            grid.innerHTML = accountData.items.map(it => {
+            const q = (document.getElementById('search').value || '').toLowerCase().trim();
+            const filtered = (accountData.items || [])
+                .filter(it => {
+                    if (!q) return true;
+                    return (it.title || '').toLowerCase().includes(q);
+                })
+                .filter(it => {
+                    if (typeFilter === 'all') return true;
+                    if (typeFilter === 'movies') return it.type === 'movie';
+                    if (typeFilter === 'shows') return it.type === 'show';
+                    return true;
+                })
+                .filter(it => {
+                    if (!alphaFilter) return true;
+                    const title = (it.title || '').trim();
+                    if (!title) return false;
+                    const first = title[0].toUpperCase();
+                    if (alphaFilter === '#') {
+                        return first >= '0' && first <= '9';
+                    }
+                    return first === alphaFilter;
+                });
+
+            document.getElementById('filterAll').classList.toggle('active', typeFilter === 'all');
+            document.getElementById('filterMovies').classList.toggle('active', typeFilter === 'movies');
+            document.getElementById('filterShows').classList.toggle('active', typeFilter === 'shows');
+
+            if (!filtered.length) {
+                grid.innerHTML = `<div class="muted">${t('content.empty')}</div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(it => {
                 const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
                 const poster = it.thumb ? `<img src="${it.thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`;
                 const ruleLine = it.ruleKey ? `<div class="muted" style="font-size:12px;">${escapeHtml(it.ruleKey)}</div>` : '';
@@ -255,10 +325,32 @@
             await loadAccount();
         });
 
+        document.getElementById('search').addEventListener('input', renderItems);
+        document.getElementById('filterAll').addEventListener('click', () => { typeFilter = 'all'; renderItems(); });
+        document.getElementById('filterMovies').addEventListener('click', () => { typeFilter = 'movies'; renderItems(); });
+        document.getElementById('filterShows').addEventListener('click', () => { typeFilter = 'shows'; renderItems(); });
+
+        document.getElementById('btnAccountSync').addEventListener('click', async () => {
+            const btn = document.getElementById('btnAccountSync');
+            btn.disabled = true;
+            try {
+                const r = await fetch(`/api/trakt/accounts/${encodeURIComponent(username)}/sync`, { method: 'POST' });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) throw new Error(data.error || 'sync_failed');
+                showStatus(t('status.syncDone'), 'success');
+                await loadAccount();
+            } catch (e) {
+                showStatus(t('status.syncError'), 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';
             initTheme();
             await loadLang(storedLang);
+            renderAlphaBar();
             await loadAccount();
         })();
     </script>

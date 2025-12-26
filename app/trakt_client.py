@@ -296,7 +296,7 @@ class TraktService:
             logger.warning("Trakt: failed to sync history for %s", acc.username, exc_info=True)
             return False, {"error": "exception"}
 
-    async def sync_events(self, events: List[Dict[str, object]]) -> Dict[str, object]:
+    async def sync_events(self, events: List[Dict[str, object]], usernames: Optional[List[str]] = None) -> Dict[str, object]:
         """Sync completed Jellyfin events to all enabled Trakt accounts.
 
         Events must include:
@@ -307,10 +307,14 @@ class TraktService:
         if not self.ready:
             return {"ok": False, "error": "trakt_not_configured"}
 
+        target_users = set(u.lower().strip() for u in (usernames or []) if u)
+
         events_sorted = sorted(events or [], key=lambda e: float(e.get("date") or 0.0))
         results: Dict[str, object] = {}
 
         for username, acc in self.accounts.items():
+            if target_users and username.lower() not in target_users:
+                continue
             if not acc.enabled:
                 results[username] = {"skipped": True, "reason": "disabled"}
                 continue
