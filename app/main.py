@@ -169,6 +169,21 @@ def _catalog_entry_for_key(key: str) -> Dict[str, Any]:
     return {}
 
 
+def _rule_key_for_entry(entry: Dict[str, Any]) -> str:
+    """Determine the rule key for a catalog entry (mirrors /api/trakt/items/set logic)."""
+    if not entry:
+        return ""
+    typ = str(entry.get("type") or "").lower()
+    gk = str(entry.get("groupKey") or "").strip()
+    pk = str(entry.get("providerKey") or "").strip()
+    key = pk or gk
+    if typ == "show" and gk:
+        key = gk
+    elif not key:
+        key = gk or pk
+    return key
+
+
 async def _cache_thumb(url: str, force: bool = False) -> str:
     """Cache a remote thumbnail locally and return the local URL."""
     if not url:
@@ -543,16 +558,22 @@ async def api_trakt_account_items(username: str):
     movies = [i for i in items_sorted if i.get("type") == "movie"]
     shows = [i for i in items_sorted if i.get("type") == "show"]
 
-    # Build blocked list: catalog items not allowed for this account.
-    account_rules = trakt_service.enabled_items(username) if trakt_service else {}
-    # If a key exists and is False, treat as blocked.
-    blocked_keys = [k for k, v in (account_rules or {}).items() if not v]
-    for key in blocked_keys:
-        meta = _catalog_entry_for_key(key)
-        if meta:
-            entry = dict(meta)
-            entry["ruleKey"] = key
-            blocked.append(entry)
+    # Build blocked list: catalog items not allowed for this account (rule false or no rule).
+    enabled_set = {k for k in enabled_keys}
+    seen_blocked: set[str] = set()
+    for _, meta in cache.catalog.items():
+        key = _rule_key_for_entry(meta)
+        if not key or key in enabled_set:
+            continue
+        allowed = bool(rules.get(key)) if key in rules else False
+        if allowed:
+            continue
+        if key in seen_blocked:
+            continue
+        entry = dict(meta)
+        entry["ruleKey"] = key
+        blocked.append(entry)
+        seen_blocked.add(key)
 
     return JSONResponse(
         {

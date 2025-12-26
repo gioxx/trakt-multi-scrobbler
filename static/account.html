@@ -314,7 +314,6 @@
             count.textContent = String(blocked.length || 0);
             if (!blocked.length) {
                 section.style.display = 'none';
-                list.innerHTML = `<div class="muted">${t('account.noBlocked')}</div>`;
                 return;
             }
             section.style.display = 'block';
