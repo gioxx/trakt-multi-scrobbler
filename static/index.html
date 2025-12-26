@@ -22,7 +22,7 @@
             <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin User(s)</button>
             <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt User(s)</button>
             <div id="summary" class="pill">ℹ️ Loading…</div>
-            <button id="btnBackup" class="pill" style="cursor:pointer;" title="Backup">💾</button>
+            <button id="btnBackup" class="pill" style="cursor:pointer;" title="Backup">💾 Backup</button>
             <input type="file" id="backupFile" accept=".zip" style="display:none;">
             <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
                 <option value="en">🌐 EN</option>
@@ -918,11 +918,11 @@
         document.getElementById('btnTheme').addEventListener('click', () => {
             applyTheme(currentTheme === 'light' ? 'dark' : 'light');
         });
-        document.getElementById('btnBackup').addEventListener('click', openBackupModal);
-        document.getElementById('btnBackupDownload').addEventListener('click', downloadBackup);
-        document.getElementById('btnBackupRestore').addEventListener('click', () => {
-            document.getElementById('backupFile').click();
-        });
+            document.getElementById('btnBackup').addEventListener('click', openBackupModal);
+            document.getElementById('btnBackupDownload').addEventListener('click', downloadBackup);
+            document.getElementById('btnBackupRestore').addEventListener('click', () => {
+                document.getElementById('backupFile').click();
+            });
         document.getElementById('backupFile').addEventListener('change', async (e) => {
             const file = e.target.files && e.target.files[0];
             if (file) {
@@ -941,6 +941,7 @@
             await loadTraktAccounts();
             await loadContentItems();
             document.getElementById('btnBackup').title = t('button.backup');
+            document.getElementById('btnBackup').textContent = `💾 ${t('button.backup')}`;
             document.getElementById('btnBackupDownload').title = t('button.backup');
             document.getElementById('btnBackupRestore').title = t('button.restore');
             document.getElementById('backupTitle').textContent = t('backup.title');
@@ -965,6 +966,7 @@
             initTheme();
             await loadLang(storedLang);
             document.getElementById('btnBackup').title = t('button.backup');
+            document.getElementById('btnBackup').textContent = `💾 ${t('button.backup')}`;
             document.getElementById('btnBackupDownload').title = t('button.backup');
             document.getElementById('btnBackupRestore').title = t('button.restore');
             document.getElementById('backupTitle').textContent = t('backup.title');
