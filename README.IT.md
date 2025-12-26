@@ -6,6 +6,12 @@
 
 Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account Trakt. Supporta più utenti per entrambi i servizi, regole per serie/film, tema chiaro/scuro e gestione account Trakt via device flow.
 
+## Novità 0.2
+- Regole/stato sync in SQLite (i token restano in JSON) con migrazione automatica dalle installazioni precedenti.
+- Pagine per singolo account: lista contenuti assegnati, filtri/ricerca, rimozione associazioni e sync mirata di un solo account Trakt.
+- Backup/ripristino dalla UI (ZIP con token Trakt JSON + db SQLite + stato Jellyfin).
+- Ritocchi UI: toggle stato account dalla pagina dedicata, filtri alfabetici/tipo anche lì, scorciatoia backup in header.
+
 ## Funzionalità principali
 - Lettura libreria Jellyfin (film/episodi) con ID TMDB/IMDB/TVDB e locandine.
 - Scelta degli utenti Jellyfin che fungono da “fonte” (persistita).
