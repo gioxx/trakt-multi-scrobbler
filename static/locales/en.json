@@ -92,8 +92,7 @@
   "summary.template": "{users} Jellyfin user(s) · updated: {date} · {trakt}",
   "history.noItems": "No history yet.",
   "backup.title": "Backup & Restore",
-  "backup.helper": "Download your configuration or restore it on a new install."
-}
+  "backup.helper": "Download your configuration or restore it on a new install.",
   "status.accountLoadError": "Could not load Trakt account page.",
   "account.title": "Trakt account",
   "account.subtitle": "Content selected for {user}.",
