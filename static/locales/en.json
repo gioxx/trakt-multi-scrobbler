@@ -119,5 +119,8 @@
   "account.syncNow": "Sync this account to Trakt now",
   "account.blockedTitle": "Not syncing to this account",
   "account.blockedHelper": "Content currently excluded for this Trakt user.",
-  "account.noBlocked": "No content is excluded for this account."
+  "account.noBlocked": "No content is excluded for this account.",
+  "account.allowSync": "Allow sync for this account",
+  "account.allowed": "Enabled.",
+  "account.allowError": "Could not enable."
 }
