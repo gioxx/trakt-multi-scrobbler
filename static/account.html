@@ -347,6 +347,14 @@
                         const data = await r.json().catch(() => ({}));
                         if (!r.ok || !data.ok) throw new Error(data.error || 'enable_failed');
                         showStatus(t('account.allowed'), 'success');
+                        // Optimistically move it from blocked to items.
+                        const found = (accountData.blocked || []).find(i => i.ruleKey === ruleKey);
+                        if (found) {
+                            accountData.blocked = (accountData.blocked || []).filter(i => i.ruleKey !== ruleKey);
+                            accountData.items = [...(accountData.items || []), found];
+                        }
+                        renderBlocked();
+                        renderItems();
                         await loadAccount();
                     } catch (e) {
                         showStatus(t('account.allowError'), 'error');
