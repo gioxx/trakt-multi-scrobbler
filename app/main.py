@@ -447,6 +447,7 @@ async def api_trakt_account_items(username: str):
     enabled_keys = [k for k, v in rules.items() if v]
     items: List[Dict[str, Any]] = []
     missing: List[Dict[str, Any]] = []
+    blocked: List[Dict[str, Any]] = []
     seen_canonical: Dict[str, Dict[str, Any]] = {}
 
     for key in enabled_keys:
@@ -475,6 +476,17 @@ async def api_trakt_account_items(username: str):
     movies = [i for i in items_sorted if i.get("type") == "movie"]
     shows = [i for i in items_sorted if i.get("type") == "show"]
 
+    # Build blocked list: catalog items not allowed for this account.
+    account_rules = trakt_service.enabled_items(username) if trakt_service else {}
+    # If a key exists and is False, treat as blocked.
+    blocked_keys = [k for k, v in (account_rules or {}).items() if not v]
+    for key in blocked_keys:
+        meta = _catalog_entry_for_key(key)
+        if meta:
+            entry = dict(meta)
+            entry["ruleKey"] = key
+            blocked.append(entry)
+
     return JSONResponse(
         {
             "ok": True,
@@ -484,6 +496,7 @@ async def api_trakt_account_items(username: str):
             "items": items_sorted,
             "counts": {"movies": len(movies), "shows": len(shows)},
             "missing": missing,
+            "blocked": sorted(blocked, key=lambda x: (x.get("type") or "", x.get("title") or "")),
             "traktConfigured": bool(trakt_service and trakt_service.ready),
             "catalogCount": len(cache.catalog),
         }

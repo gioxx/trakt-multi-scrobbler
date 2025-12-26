@@ -116,5 +116,8 @@
   "account.remove": "Stop syncing to this account",
   "account.removed": "Association removed.",
   "account.removeError": "Could not remove association.",
-  "account.syncNow": "Sync this account to Trakt now"
+  "account.syncNow": "Sync this account to Trakt now",
+  "account.blockedTitle": "Not syncing to this account",
+  "account.blockedHelper": "Content currently excluded for this Trakt user.",
+  "account.noBlocked": "No content is excluded for this account."
 }
