@@ -288,6 +288,14 @@
                         const data = await r.json().catch(() => ({}));
                         if (!r.ok || !data.ok) throw new Error(data.error || 'remove_failed');
                         showStatus(t('account.removed'), 'success');
+                        // Optimistically move to blocked list.
+                        const found = (accountData.items || []).find(i => i.ruleKey === ruleKey);
+                        if (found) {
+                            accountData.items = (accountData.items || []).filter(i => i.ruleKey !== ruleKey);
+                            accountData.blocked = [...(accountData.blocked || []), found];
+                        }
+                        renderItems();
+                        renderBlocked();
                         await loadAccount();
                     } catch (e) {
                         showStatus(t('account.removeError'), 'error');
