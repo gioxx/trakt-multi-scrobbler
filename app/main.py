@@ -7,12 +7,14 @@ import os
 import time
 import io
 import zipfile
+import hashlib
 from datetime import datetime
 from typing import Any, Dict, List, Set
 
 from fastapi import FastAPI, Body, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+import httpx
 
 from app.jellyfin_client import JellyfinClient
 from app.store import Cache
@@ -27,6 +29,8 @@ REFRESH_MINUTES = int(os.environ.get("REFRESH_MINUTES", "30"))
 TRAKT_CLIENT_ID = os.environ.get("TRAKT_CLIENT_ID", "").strip()
 TRAKT_CLIENT_SECRET = os.environ.get("TRAKT_CLIENT_SECRET", "").strip()
 TRAKT_STATE_PATH = os.environ.get("TRAKT_STATE_PATH", "trakt_accounts.json")
+THUMB_CACHE_DIR = os.environ.get("THUMB_CACHE_DIR", "").strip()
+THUMB_CACHE_TTL_HOURS = float(os.environ.get("THUMB_CACHE_TTL_HOURS", "72"))
 
 
 def _default_trakt_db_path() -> str:
@@ -47,6 +51,9 @@ def _default_jellyfin_state_path() -> str:
 
 JELLYFIN_STATE_PATH = _default_jellyfin_state_path()
 TRAKT_DB_PATH = _default_trakt_db_path()
+if not THUMB_CACHE_DIR:
+    base_dir = os.path.dirname(TRAKT_STATE_PATH) or "."
+    THUMB_CACHE_DIR = os.path.join(base_dir, "thumb_cache")
 
 if not (JELLYFIN_URL and JELLYFIN_APIKEY):
     raise RuntimeError("Missing required env vars: JELLYFIN_URL, JELLYFIN_APIKEY")
@@ -55,9 +62,12 @@ jellyfin = JellyfinClient(JELLYFIN_URL, JELLYFIN_APIKEY)
 trakt_service = TraktService(TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET, TRAKT_STATE_PATH, TRAKT_DB_PATH)
 
 cache = Cache()
+thumb_cache_last_refresh = 0.0
 app = FastAPI(title="Trakt Multi-Scrobbler")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
+app.mount("/thumbs", StaticFiles(directory=THUMB_CACHE_DIR), name="thumbs")
 
 logger = logging.getLogger("trakt-multi-scrobbler")
 
@@ -159,6 +169,36 @@ def _catalog_entry_for_key(key: str) -> Dict[str, Any]:
     return {}
 
 
+async def _cache_thumb(url: str, force: bool = False) -> str:
+    """Cache a remote thumbnail locally and return the local URL."""
+    if not url:
+        return url
+    try:
+        os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
+    except Exception:
+        return url
+    fname = hashlib.sha1(url.encode("utf-8")).hexdigest() + ".jpg"
+    fpath = os.path.join(THUMB_CACHE_DIR, fname)
+    ttl_seconds = max(THUMB_CACHE_TTL_HOURS, 0) * 3600
+    now = time.time()
+    if os.path.exists(fpath) and not force:
+        try:
+            if ttl_seconds <= 0 or (now - os.path.getmtime(fpath)) < ttl_seconds:
+                return f"/thumbs/{fname}"
+        except Exception:
+            pass
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            with open(fpath, "wb") as dst:
+                dst.write(r.content)
+            os.utime(fpath, (now, now))
+            return f"/thumbs/{fname}"
+    except Exception:
+        return url
+
+
 def _backup_sources() -> List[Dict[str, str]]:
     files: List[Dict[str, str]] = []
     candidates = [
@@ -184,6 +224,28 @@ def _backup_sources() -> List[Dict[str, str]]:
         seen_names.add(name)
         files.append({"path": path, "name": name})
     return files
+
+
+def _thumb_cache_status() -> Dict[str, Any]:
+    files = 0
+    size = 0
+    if os.path.isdir(THUMB_CACHE_DIR):
+        try:
+            for entry in os.scandir(THUMB_CACHE_DIR):
+                if entry.is_file():
+                    files += 1
+                    try:
+                        size += entry.stat().st_size
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    return {
+        "files": files,
+        "size": size,
+        "lastRefresh": thumb_cache_last_refresh,
+        "ttlHours": THUMB_CACHE_TTL_HOURS,
+    }
 
 
 def _ts_from_iso(val: str) -> float:
@@ -236,8 +298,9 @@ def _recent_completed_events(limit: int = 5) -> List[Dict[str, Any]]:
     return items[:limit]
 
 
-async def refresh_cache(force: bool = False) -> None:
+async def refresh_cache(force: bool = False, recache_thumbs: bool = False) -> None:
     """Pull users + history from Jellyfin only."""
+    global thumb_cache_last_refresh
     if not force and not cache.is_stale(REFRESH_MINUTES):
         return
 
@@ -305,6 +368,9 @@ async def refresh_cache(force: bool = False) -> None:
             if series_primary_tag and show_id and not series_thumb_url:
                 series_thumb_url = _jellyfin_thumb(show_id, series_primary_tag)
 
+            thumb_url = await _cache_thumb(thumb_url, force=recache_thumbs)
+            series_thumb_url = await _cache_thumb(series_thumb_url, force=recache_thumbs)
+
             provider_key = _provider_key_from_ids(it.get("ProviderIds", {}))
             group_key = item_id if typ == "movie" else show_id
             catalog_key = group_key or provider_key
@@ -344,6 +410,7 @@ async def refresh_cache(force: bool = False) -> None:
             _record_history(juid, event)
 
     cache.last_refresh_ts = time.time()
+    thumb_cache_last_refresh = cache.last_refresh_ts
 
     if jellyfin_selection_initialized:
         removed = {uid for uid in selected_jellyfin_users if uid not in cache.users}
@@ -600,6 +667,17 @@ async def api_restore(file: UploadFile = File(...)):
         trakt_service._load_sync_state()
 
     return JSONResponse({"ok": True, "restored": restored})
+
+
+@app.get("/api/thumbs/status")
+async def api_thumb_status():
+    return JSONResponse({"ok": True, **_thumb_cache_status()})
+
+
+@app.post("/api/thumbs/refresh")
+async def api_thumb_refresh():
+    await refresh_cache(force=True, recache_thumbs=True)
+    return JSONResponse({"ok": True, **_thumb_cache_status()})
 
 
 @app.post("/api/trakt/device/start")
