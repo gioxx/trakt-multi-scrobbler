@@ -13,6 +13,7 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
 - Manual/automatic sync to Trakt, filters for new titles and “Unassigned”.
 - Add/remove Trakt accounts from the UI (device flow) and toggle them on/off.
 - Dedicated per-account page to review what each Trakt user is syncing.
+- Backup/restore of configuration (JSON tokens + SQLite rules) from the UI.
 - Light/dark themes and localization (en/it).
 
 ## Requirements
@@ -98,6 +99,7 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
 ## Using the UI
 - **Jellyfin User(s)**: choose which Jellyfin users are tracked (modal checkboxes). Stored in `JELLYFIN_STATE_PATH`.
 - **Trakt User(s)**: add/remove accounts via device flow; enable/disable with the toggle. Tokens live in `TRAKT_STATE_PATH`; sync state and per-title rules are stored in SQLite (`TRAKT_DB_PATH`). Each card links to a dedicated page for that Trakt user.
+- **Backup & restore**: from the main UI you can download a ZIP with JSON tokens + SQLite db (and Jellyfin state); upload the ZIP to restore onto another install.
 - **Content filters**: search, filter by type (movies/series), alphabet filter, and Trakt-account filter; set per-title rules (checkbox per account). “Unassigned” shows titles with no targets.
 - **Sync to Trakt**: push completed events immediately; also runs automatically every `REFRESH_MINUTES`.
 - **Refresh Jellyfin**: force library/user/cache refresh.

@@ -13,6 +13,7 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
 - Sync automatica/su richiesta verso Trakt, con filtri per nuovi titoli e “Unassigned”.
 - Aggiunta/rimozione account Trakt dalla UI (device flow) e toggle per abilitarli.
 - Pagina dedicata per ogni account Trakt per vedere cosa sincronizza.
+- Backup/ripristino della configurazione (token JSON + db SQLite) dalla UI.
 - Tema chiaro/scuro e localizzazione (en/it).
 
 ## Requisiti
@@ -98,6 +99,7 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
 ## Come usare la UI
 - **Jellyfin User(s)**: scegli quali utenti Jellyfin sono monitorati (checkbox nel modale). Persistenza in `JELLYFIN_STATE_PATH`.
 - **Trakt User(s)**: aggiungi/rimuovi account via device flow, attiva/disattiva con la checkbox. I token stanno in `TRAKT_STATE_PATH`; regole e stato sync sono nel database SQLite `TRAKT_DB_PATH`. Ogni scheda apre la pagina dedicata dell'account.
+- **Backup & restore**: dalla UI principale puoi scaricare uno ZIP con token JSON + db SQLite (e stato Jellyfin); carica lo ZIP per ripristinare su un'altra installazione.
 - **Content filters**: ricerca, filtro tipo (film/serie), filtro alfabetico e filtro per account Trakt; assegna le regole per film/serie (checkbox per account). “Unassigned” mostra i titoli senza destinazione.
 - **Sync to Trakt**: invia subito gli eventi completati; la sync gira anche in automatico ogni `REFRESH_MINUTES`.
 - **Refresh Jellyfin**: forza l’aggiornamento di libreria/utenti/cache.

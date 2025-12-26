@@ -5,11 +5,13 @@ import json
 import logging
 import os
 import time
+import io
+import zipfile
 from datetime import datetime
 from typing import Any, Dict, List, Set
 
-from fastapi import FastAPI, Body
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Body, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.jellyfin_client import JellyfinClient
@@ -155,6 +157,33 @@ def _catalog_entry_for_key(key: str) -> Dict[str, Any]:
         if k == meta.get("providerKey") or k == meta.get("groupKey"):
             return meta
     return {}
+
+
+def _backup_sources() -> List[Dict[str, str]]:
+    files: List[Dict[str, str]] = []
+    candidates = [
+        {"path": TRAKT_STATE_PATH, "name": os.path.basename(TRAKT_STATE_PATH) or "trakt_accounts.json"},
+        {"path": TRAKT_DB_PATH, "name": os.path.basename(TRAKT_DB_PATH) or "trakt_sync.db"},
+        {"path": JELLYFIN_STATE_PATH, "name": os.path.basename(JELLYFIN_STATE_PATH) or "jellyfin_state.json"},
+    ]
+    seen_names: Set[str] = set()
+    for c in candidates:
+        path = c["path"]
+        name = c["name"]
+        if not path or not os.path.exists(path) or os.path.isdir(path):
+            continue
+        # Avoid duplicate basenames.
+        if name in seen_names:
+            base, ext = os.path.splitext(name)
+            suffix = 1
+            alt_name = f"{base}_{suffix}{ext}"
+            while alt_name in seen_names:
+                suffix += 1
+                alt_name = f"{base}_{suffix}{ext}"
+            name = alt_name
+        seen_names.add(name)
+        files.append({"path": path, "name": name})
+    return files
 
 
 def _ts_from_iso(val: str) -> float:
@@ -501,6 +530,63 @@ async def api_trakt_sync_account(username: str):
     if per_account is None:
         return JSONResponse({"ok": False, "error": "no_result"}, status_code=400)
     return JSONResponse({"ok": True, "result": per_account})
+
+
+@app.get("/api/backup")
+async def api_backup():
+    files = _backup_sources()
+    manifest = {
+        "timestamp": time.time(),
+        "files": [{"name": f["name"], "path": f["path"]} for f in files],
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(manifest, indent=2))
+        for f in files:
+            try:
+                zf.write(f["path"], arcname=f["name"])
+            except Exception:
+                # If one file fails, continue with others.
+                pass
+    buf.seek(0)
+    headers = {"Content-Disposition": 'attachment; filename="trakt-multi-scrobbler-backup.zip"'}
+    return Response(content=buf.getvalue(), media_type="application/zip", headers=headers)
+
+
+@app.post("/api/backup/restore")
+async def api_restore(file: UploadFile = File(...)):
+    if not file:
+        return JSONResponse({"ok": False, "error": "missing_file"}, status_code=400)
+    raw = await file.read()
+    restored: List[str] = []
+    try:
+        buf = io.BytesIO(raw)
+        with zipfile.ZipFile(buf, "r") as zf:
+            for info in zf.infolist():
+                name = os.path.basename(info.filename)
+                if not name:
+                    continue
+                dest = None
+                for candidate in (TRAKT_STATE_PATH, TRAKT_DB_PATH, JELLYFIN_STATE_PATH):
+                    if name == os.path.basename(candidate):
+                        dest = candidate
+                        break
+                if not dest:
+                    continue
+                os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+                with zf.open(info) as src, open(dest, "wb") as dst:
+                    dst.write(src.read())
+                restored.append(dest)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "restore_failed"}, status_code=400)
+
+    # Reload in-memory state after restore.
+    _load_jellyfin_state()
+    if trakt_service:
+        trakt_service._load_state()
+        trakt_service._load_sync_state()
+
+    return JSONResponse({"ok": True, "restored": restored})
 
 
 @app.post("/api/trakt/device/start")

@@ -44,6 +44,20 @@
             <div id="recentList" class="grid"></div>
         </section>
 
+        <section class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                <div>
+                    <div id="backupTitle" style="font-weight:700; font-size:17px;">Backup &amp; Restore</div>
+                    <div id="backupHelper" class="muted">Scarica la configurazione o ripristina da un backup.</div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <button id="btnBackupDownload" class="pill">Backup</button>
+                    <button id="btnBackupRestore" class="pill">Restore</button>
+                    <input type="file" id="backupFile" accept=".zip" style="display:none;">
+                </div>
+            </div>
+        </section>
+
         <section id="orphansSection" class="panel" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
@@ -392,6 +406,45 @@
 
         function closeTraktModal() {
             document.getElementById('traktModal').style.display = 'none';
+        }
+
+        async function downloadBackup() {
+            try {
+                const r = await fetch('/api/backup');
+                if (!r.ok) throw new Error('failed');
+                const blob = await r.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'trakt-multi-scrobbler-backup.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showStatus(t('status.backupOk'), 'success');
+            } catch (e) {
+                showStatus(t('status.backupError'), 'error');
+            }
+        }
+
+        async function restoreBackup(file) {
+            if (!file) return;
+            const form = new FormData();
+            form.append('file', file);
+            try {
+                const r = await fetch('/api/backup/restore', {
+                    method: 'POST',
+                    body: form
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) throw new Error(data.error || 'restore_failed');
+                showStatus(t('status.restoreOk'), 'success');
+                await loadSummary();
+                await loadTraktAccounts();
+                await loadContentItems();
+            } catch (e) {
+                showStatus(t('status.restoreError'), 'error');
+            }
         }
 
         // Content filters list rendering
@@ -848,6 +901,17 @@
         document.getElementById('btnTraktModal').addEventListener('click', () => { loadTraktAccounts(); openTraktModal(); });
         document.getElementById('btnTheme').addEventListener('click', () => {
             applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+        });
+        document.getElementById('btnBackupDownload').addEventListener('click', downloadBackup);
+        document.getElementById('btnBackupRestore').addEventListener('click', () => {
+            document.getElementById('backupFile').click();
+        });
+        document.getElementById('backupFile').addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                await restoreBackup(file);
+                e.target.value = '';
+            }
         });
         document.getElementById('btnCloseJellyfin').addEventListener('click', closeJellyfinModal);
         document.getElementById('btnCloseTrakt').addEventListener('click', closeTraktModal);

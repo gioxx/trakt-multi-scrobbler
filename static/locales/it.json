@@ -69,6 +69,10 @@
   "status.syncSkipped": "Saltato: {reason}",
   "status.syncError": "Sync fallita.",
   "status.syncDone": "Sync completata.",
+  "status.backupOk": "Backup creato.",
+  "status.backupError": "Backup fallito.",
+  "status.restoreOk": "Ripristino completato.",
+  "status.restoreError": "Ripristino fallito.",
   "modal.deviceTitle": "Aggiungi account Trakt",
   "modal.deviceStep": "1) Apri il link, 2) inserisci il codice, 3) autorizza l'accesso.",
   "modal.openUrl": "Apri il link di verifica",
@@ -104,5 +108,9 @@
   "account.summary": "{user}: {status}",
   "account.remove": "Rimuovi da questo account",
   "account.removed": "Rimosso.",
-  "account.removeError": "Impossibile rimuovere."
+  "account.removeError": "Impossibile rimuovere.",
+  "button.backup": "Backup",
+  "button.restore": "Ripristina",
+  "backup.title": "Backup & Ripristino",
+  "backup.helper": "Scarica la configurazione o ripristinala su una nuova installazione."
 }
