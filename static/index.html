@@ -22,6 +22,9 @@
             <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin User(s)</button>
             <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt User(s)</button>
             <div id="summary" class="pill">ℹ️ Loading…</div>
+            <button id="btnBackupDownload" class="pill" style="cursor:pointer;" title="Backup">💾</button>
+            <button id="btnBackupRestore" class="pill" style="cursor:pointer;" title="Restore">📂</button>
+            <input type="file" id="backupFile" accept=".zip" style="display:none;">
             <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
                 <option value="en">🌐 EN</option>
                 <option value="it">🌐 IT</option>
@@ -42,20 +45,6 @@
                 </div>
             </div>
             <div id="recentList" class="grid"></div>
-        </section>
-
-        <section class="panel">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-                <div>
-                    <div id="backupTitle" style="font-weight:700; font-size:17px;">Backup &amp; Restore</div>
-                    <div id="backupHelper" class="muted">Scarica la configurazione o ripristina da un backup.</div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                    <button id="btnBackupDownload" class="pill">Backup</button>
-                    <button id="btnBackupRestore" class="pill">Restore</button>
-                    <input type="file" id="backupFile" accept=".zip" style="display:none;">
-                </div>
-            </div>
         </section>
 
         <section id="orphansSection" class="panel" style="display:none;">
@@ -922,6 +911,8 @@
             await loadRecent();
             await loadTraktAccounts();
             await loadContentItems();
+            document.getElementById('btnBackupDownload').title = t('button.backup');
+            document.getElementById('btnBackupRestore').title = t('button.restore');
         });
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
@@ -937,6 +928,8 @@
             const storedLang = localStorage.getItem('lang') || 'en';
             initTheme();
             await loadLang(storedLang);
+            document.getElementById('btnBackupDownload').title = t('button.backup');
+            document.getElementById('btnBackupRestore').title = t('button.restore');
             await loadSummary();
             await loadJellyfinUsers();
             await loadRecent();
