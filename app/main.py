@@ -27,6 +27,14 @@ TRAKT_CLIENT_SECRET = os.environ.get("TRAKT_CLIENT_SECRET", "").strip()
 TRAKT_STATE_PATH = os.environ.get("TRAKT_STATE_PATH", "trakt_accounts.json")
 
 
+def _default_trakt_db_path() -> str:
+    env_path = os.environ.get("TRAKT_DB_PATH", "").strip()
+    if env_path:
+        return env_path
+    base_dir = os.path.dirname(TRAKT_STATE_PATH) or "."
+    return os.path.join(base_dir, "trakt_sync.db")
+
+
 def _default_jellyfin_state_path() -> str:
     env_path = os.environ.get("JELLYFIN_STATE_PATH", "").strip()
     if env_path:
@@ -36,12 +44,13 @@ def _default_jellyfin_state_path() -> str:
 
 
 JELLYFIN_STATE_PATH = _default_jellyfin_state_path()
+TRAKT_DB_PATH = _default_trakt_db_path()
 
 if not (JELLYFIN_URL and JELLYFIN_APIKEY):
     raise RuntimeError("Missing required env vars: JELLYFIN_URL, JELLYFIN_APIKEY")
 
 jellyfin = JellyfinClient(JELLYFIN_URL, JELLYFIN_APIKEY)
-trakt_service = TraktService(TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET, TRAKT_STATE_PATH)
+trakt_service = TraktService(TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET, TRAKT_STATE_PATH, TRAKT_DB_PATH)
 
 cache = Cache()
 app = FastAPI(title="Trakt Multi-Scrobbler")
@@ -134,6 +143,18 @@ def _provider_key_from_ids(ids: Dict[str, Any]) -> str:
     if tvdb:
         return _provider_key("tvdb", tvdb)
     return ""
+
+
+def _catalog_entry_for_key(key: str) -> Dict[str, Any]:
+    k = (key or "").strip()
+    if not k:
+        return {}
+    if k in cache.catalog:
+        return cache.catalog[k]
+    for _, meta in cache.catalog.items():
+        if k == meta.get("providerKey") or k == meta.get("groupKey"):
+            return meta
+    return {}
 
 
 def _ts_from_iso(val: str) -> float:
@@ -345,6 +366,15 @@ async def index():
         return f.read()
 
 
+@app.get("/trakt/{username}", response_class=HTMLResponse)
+async def trakt_account_page(username: str):
+    try:
+        with open("static/account.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return HTMLResponse(content="Account page missing.", status_code=500)
+
+
 @app.get("/api/summary")
 async def summary():
     await refresh_cache(force=False)
@@ -375,6 +405,46 @@ async def api_trakt_accounts():
     if not trakt_service:
         return JSONResponse({"accounts": [], "configured": False, "error": "missing_client_id"}, status_code=200)
     return JSONResponse({"accounts": trakt_service.list_accounts(), "configured": trakt_service.ready})
+
+
+@app.get("/api/trakt/accounts/{username}/items")
+async def api_trakt_account_items(username: str):
+    """Return enabled content for a specific Trakt account."""
+    await refresh_cache(force=False)
+    if not trakt_service or username not in trakt_service.accounts:
+        return JSONResponse({"ok": False, "error": "unknown_account"}, status_code=404)
+
+    rules = trakt_service.enabled_items(username) if trakt_service else {}
+    enabled_keys = [k for k, v in rules.items() if v]
+    items: List[Dict[str, Any]] = []
+    missing: List[Dict[str, Any]] = []
+
+    for key in enabled_keys:
+        meta = _catalog_entry_for_key(key)
+        if meta:
+            entry = dict(meta)
+            entry["ruleKey"] = key
+            items.append(entry)
+        else:
+            missing.append({"ruleKey": key})
+
+    items_sorted = sorted(items, key=lambda x: (x.get("type") or "", x.get("title") or ""))
+    movies = [i for i in items_sorted if i.get("type") == "movie"]
+    shows = [i for i in items_sorted if i.get("type") == "show"]
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "username": username,
+            "enabled": trakt_service.accounts.get(username).enabled if trakt_service else False,
+            "lastSynced": trakt_service.last_synced.get(username, 0.0),
+            "items": items_sorted,
+            "counts": {"movies": len(movies), "shows": len(shows)},
+            "missing": missing,
+            "traktConfigured": bool(trakt_service and trakt_service.ready),
+            "catalogCount": len(cache.catalog),
+        }
+    )
 
 
 @app.post("/api/trakt/accounts/toggle")

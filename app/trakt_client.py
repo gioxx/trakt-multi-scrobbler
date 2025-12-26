@@ -8,6 +8,8 @@ from typing import Dict, List, Optional, Tuple
 
 import httpx
 
+from app.db import SyncStore
+
 
 logger = logging.getLogger("trakt")
 
@@ -66,20 +68,29 @@ class TraktAccount:
 class TraktService:
     """Thin wrapper around Trakt's API for history sync."""
 
-    def __init__(self, client_id: str, client_secret: str, state_path: str = "trakt_accounts.json") -> None:
+    def __init__(self, client_id: str, client_secret: str, state_path: str = "trakt_accounts.json", db_path: Optional[str] = None) -> None:
         self.client_id = client_id.strip()
         self.client_secret = client_secret.strip()
         self.state_path = state_path
+        self.db_path = db_path or self._derive_db_path(state_path)
         self.accounts: Dict[str, TraktAccount] = {}
         self.last_synced: Dict[str, float] = {}
         # account_items: username -> key -> enabled(bool). Missing means allowed by default.
         self.account_items: Dict[str, Dict[str, bool]] = {}
+        self._json_last_synced: Dict[str, float] = {}
+        self._json_account_items: Dict[str, Dict[str, bool]] = {}
+        self.store = SyncStore(self.db_path)
         self._load_state()
+        self._load_sync_state()
         self._ensure_state_file()
 
     @property
     def ready(self) -> bool:
         return bool(self.client_id and self.client_secret and self.accounts)
+
+    def _derive_db_path(self, state_path: str) -> str:
+        base_dir = os.path.dirname(state_path) or "."
+        return os.path.join(base_dir, "trakt_sync.db")
 
     def _load_state(self) -> None:
         if not os.path.exists(self.state_path):
@@ -98,15 +109,50 @@ class TraktService:
             acc = TraktAccount.from_dict(a or {})
             if acc.username:
                 self.accounts[acc.username] = acc
-        self.last_synced = {str(k): float(v) for k, v in (data.get("last_synced") or {}).items()}
-        self.account_items = {str(k): {str(pk): bool(vv) for pk, vv in (v or {}).items()} for k, v in (data.get("account_items") or {}).items()}
+        self._json_last_synced = {str(k): float(v) for k, v in (data.get("last_synced") or {}).items()}
+        self._json_account_items = {
+            str(k): {str(pk): bool(vv) for pk, vv in (v or {}).items()} for k, v in (data.get("account_items") or {}).items()
+        }
+
+    def _load_sync_state(self) -> None:
+        settings = self.store.load_account_settings()
+        items = self.store.load_account_items()
+
+        # Initial migration from JSON to SQLite.
+        if not settings and (self._json_last_synced or self._json_account_items):
+            for username, acc in self.accounts.items():
+                self.store.ensure_account(username, enabled=acc.enabled, last_synced=self._json_last_synced.get(username, 0.0))
+            self.store.import_account_items(self._json_account_items)
+            settings = self.store.load_account_settings()
+            items = self.store.load_account_items()
+
+        # Ensure every account has a row in SQLite.
+        for username, acc in self.accounts.items():
+            if username not in settings:
+                self.store.ensure_account(username, enabled=acc.enabled, last_synced=self._json_last_synced.get(username, 0.0))
+        settings = self.store.load_account_settings()
+
+        for username, acc in self.accounts.items():
+            st = settings.get(username, {"enabled": False, "last_synced": 0.0})
+            acc.enabled = bool(st.get("enabled", False))
+            self.last_synced[username] = float(st.get("last_synced") or 0.0)
+
+        self.account_items = items
+        self._save_state()
 
     def _save_state(self) -> None:
         os.makedirs(os.path.dirname(self.state_path) or ".", exist_ok=True)
         data = {
-            "accounts": [acc.to_dict() for acc in self.accounts.values()],
+            "accounts": [
+                {
+                    "username": acc.username,
+                    "access_token": acc.access_token,
+                    "refresh_token": acc.refresh_token,
+                    "expires_at": acc.expires_at,
+                }
+                for acc in self.accounts.values()
+            ],
             "last_synced": self.last_synced,
-            "account_items": self.account_items,
         }
         try:
             with open(self.state_path, "w", encoding="utf-8") as f:
@@ -139,6 +185,7 @@ class TraktService:
         if not acc:
             return False
         acc.enabled = bool(enabled)
+        self.store.set_enabled(username, acc.enabled)
         self._save_state()
         return True
 
@@ -148,6 +195,7 @@ class TraktService:
         self.accounts.pop(username, None)
         self.last_synced.pop(username, None)
         self.account_items.pop(username, None)
+        self.store.remove_account(username)
         self._save_state()
         logger.info("Trakt: removed account %s", username)
         return True
@@ -159,6 +207,7 @@ class TraktService:
             return False
         rules = self.account_items.setdefault(username, {})
         rules[key] = bool(enabled)
+        self.store.set_item_rule(username, key, enabled)
         self._save_state()
         return True
 
@@ -183,6 +232,7 @@ class TraktService:
                     rules.pop(k, None)
                 changed = True
         if changed:
+            self.store.prune_rules(valid_keys)
             self._save_state()
 
     async def _refresh_token(self, acc: TraktAccount) -> bool:
@@ -317,6 +367,7 @@ class TraktService:
             if ok:
                 if movies or episodes:
                     self.last_synced[username] = max_ts_sent or last
+                    self.store.set_last_synced(username, self.last_synced[username])
                     self._save_state()
                 results[username] = {
                     "ok": True,
@@ -423,6 +474,11 @@ class TraktService:
             enabled=False,  # start disabled until user enables + sets filters
         )
         self.accounts[username] = acc
+        self.last_synced.setdefault(username, 0.0)
+        self.store.ensure_account(username, enabled=acc.enabled, last_synced=self.last_synced.get(username, 0.0))
         self._save_state()
         logger.info("Trakt: added/updated account %s via device flow", username)
         return True, {"username": username, "expires_at": expires_at}
+
+    def enabled_items(self, username: str) -> Dict[str, bool]:
+        return dict(self.account_items.get(username, {}))

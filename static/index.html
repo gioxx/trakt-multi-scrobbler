@@ -420,7 +420,8 @@
             <div class="muted">${t('label.lastSynced', {date: last})}</div>
             <div class="muted">${t('label.traktStatus', {status: badge})}</div>
           </div>
-          <div style="display:flex; gap:8px; align-items:center;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+            <button class="pill" data-view="${escapeHtml(acc.username)}">${t('button.viewAccount')}</button>
             <input type="checkbox" data-username="${escapeHtml(acc.username)}" ${checked} style="width:22px; height:22px; cursor:pointer;" />
             <button class="pill" data-delete="${escapeHtml(acc.username)}" style="background:#241014;">${t('button.delete')}</button>
           </div>
@@ -466,6 +467,14 @@
                         await loadContentItems();
                     } catch (err) {
                         showStatus(t('status.saveError'), 'error');
+                    }
+                });
+            });
+            container.querySelectorAll('button[data-view]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const username = btn.getAttribute('data-view');
+                    if (username) {
+                        window.location.href = `/trakt/${encodeURIComponent(username)}`;
                     }
                 });
             });

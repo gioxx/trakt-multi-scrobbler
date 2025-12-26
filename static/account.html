@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Trakt Account · Trakt Multi-Scrobbler</title>
+    <link rel="icon" type="image/webp" href="/static/scrobbler_icon.webp" />
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body>
+    <header>
+        <div class="brand" style="display:flex; align-items:center; gap:8px;">
+            <img src="/static/scrobbler_icon.webp" alt="" width="40" height="40" aria-hidden="true" />
+            <div>
+                <div id="brandTitle" style="font-size:18px;">Trakt Multi-Scrobbler</div>
+                <div id="brandSubtitle" class="muted" style="font-size:12px;">Trakt account</div>
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+            <a href="/" class="pill" id="backLink" style="text-decoration:none;">← Overview</a>
+            <div id="accountSummary" class="pill">—</div>
+            <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
+                <option value="en">🌐 EN</option>
+                <option value="it">🌐 IT</option>
+            </select>
+            <button id="btnTheme" class="pill" style="cursor:pointer;">⌗</button>
+            <a id="btnGithub" class="pill" style="cursor:pointer; text-decoration:none; display:flex; align-items:center; gap:6px;" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener">
+                <img src="/static/github.svg" alt="GitHub" width="16" height="16" aria-hidden="true" style="display:block;" />
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section class="panel">
+            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;">
+                <div>
+                    <div id="pageTitle" style="font-weight:700; font-size:18px;">Trakt account</div>
+                    <div id="pageSubtitle" class="muted">Assigned content for this Trakt user.</div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                    <div id="statusPill" class="pill">—</div>
+                    <div id="lastSyncPill" class="pill">—</div>
+                    <div id="countPill" class="pill">—</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                <div>
+                    <div id="selectedTitle" style="font-weight:700; font-size:16px;">Selected content</div>
+                    <div id="selectedHelper" class="muted">Items currently scrobbling for this account.</div>
+                </div>
+            </div>
+            <div id="itemGrid" class="grid"></div>
+        </section>
+
+        <section class="panel" id="missingPanel" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                <div>
+                    <div id="missingTitle" style="font-weight:700; font-size:16px;">Missing content</div>
+                    <div id="missingHelper" class="muted">Assigned items no longer found in Jellyfin.</div>
+                </div>
+            </div>
+            <div id="missingList" class="grid"></div>
+        </section>
+    </main>
+
+    <div id="toast" style="position:fixed; right:16px; bottom:16px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); box-shadow:0 4px 14px rgba(0,0,0,0.25); display:none; z-index:9999; min-width:200px; max-width:320px; background: var(--panel); color: var(--text);"></div>
+
+    <script>
+        let translations = {};
+        let currentLang = 'en';
+        let accountData = null;
+        let currentTheme = 'dark';
+        const username = decodeURIComponent((window.location.pathname.split('/').filter(Boolean).pop() || '').replace(/%2F/g, '/'));
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function t(key, vars = {}) {
+            const base = translations[key] || translations[key.replace(/:[^.]+/, '')] || key;
+            return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`{${k}}`, 'g'), vars[k]), base);
+        }
+
+        function showStatus(message, type = 'info') {
+            const el = document.getElementById('toast');
+            if (!el) return;
+            const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            el.textContent = `${icon} ${message}`;
+            const color = type === 'error' ? '#3b1b1b' : type === 'success' ? '#11321e' : '#132033';
+            const border = type === 'error' ? '#7a2c2c' : type === 'success' ? '#235932' : '#1f2c44';
+            el.style.background = color;
+            el.style.borderColor = border;
+            el.style.display = 'block';
+            setTimeout(() => {
+                el.style.display = 'none';
+            }, 2600);
+        }
+
+        function applyTheme(theme) {
+            currentTheme = theme;
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            const btn = document.getElementById('btnTheme');
+            if (btn) {
+                btn.textContent = theme === 'light' ? '◐' : '◑';
+                btn.setAttribute('aria-label', theme === 'light' ? t('theme.dark') : t('theme.light'));
+            }
+        }
+
+        function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || saved === 'dark') {
+                applyTheme(saved);
+                return;
+            }
+            const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+            applyTheme(prefersLight ? 'light' : 'dark');
+        }
+
+        async function loadLang(lang) {
+            currentLang = lang;
+            try {
+                const r = await fetch(`/static/locales/${lang}.json`);
+                translations = await r.json();
+                localStorage.setItem('lang', lang);
+            } catch (e) {
+                translations = {};
+            }
+            document.getElementById('langSelect').value = lang;
+            renderAccount();
+        }
+
+        function renderAccount() {
+            const title = document.getElementById('pageTitle');
+            const subtitle = document.getElementById('pageSubtitle');
+            const statusPill = document.getElementById('statusPill');
+            const lastSyncPill = document.getElementById('lastSyncPill');
+            const countPill = document.getElementById('countPill');
+            const summary = document.getElementById('accountSummary');
+
+            document.getElementById('brandSubtitle').textContent = t('account.title');
+            document.getElementById('backLink').textContent = t('account.back');
+            title.textContent = t('account.title');
+            const name = accountData && accountData.username ? accountData.username : username || '—';
+            subtitle.textContent = t('account.subtitle', { user: name });
+
+            const enabled = accountData ? !!accountData.enabled : false;
+            const statusLabel = enabled ? t('account.statusEnabled') : t('account.statusDisabled');
+            statusPill.textContent = statusLabel;
+            const last = accountData && accountData.lastSynced ? new Date(accountData.lastSynced * 1000).toLocaleString() : t('label.never');
+            lastSyncPill.textContent = t('account.lastSync', { date: last });
+            const movies = accountData && accountData.counts ? accountData.counts.movies || 0 : 0;
+            const shows = accountData && accountData.counts ? accountData.counts.shows || 0 : 0;
+            countPill.textContent = t('account.counts', { movies, shows });
+            summary.textContent = t('account.summary', { user: name, status: statusLabel });
+            document.title = `${name} · Trakt Multi-Scrobbler`;
+
+            renderItems();
+            renderMissing();
+        }
+
+        function renderItems() {
+            const grid = document.getElementById('itemGrid');
+            if (!accountData || !accountData.items || !accountData.items.length) {
+                grid.innerHTML = `<div class="muted">${t('account.noItems')}</div>`;
+                return;
+            }
+            grid.innerHTML = accountData.items.map(it => {
+                const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
+                const poster = it.thumb ? `<img src="${it.thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`;
+                const ruleLine = it.ruleKey ? `<div class="muted" style="font-size:12px;">${escapeHtml(it.ruleKey)}</div>` : '';
+                return `<div class="card">
+          <div class="poster">${poster}</div>
+          <div class="meta">
+            <div class="title">${escapeHtml(it.title || '')}</div>
+            <div class="sub">${escapeHtml(subtitle)}</div>
+            ${ruleLine}
+          </div>
+        </div>`;
+            }).join('');
+        }
+
+        function renderMissing() {
+            const panel = document.getElementById('missingPanel');
+            const list = document.getElementById('missingList');
+            if (!accountData || !accountData.missing || !accountData.missing.length) {
+                panel.style.display = 'none';
+                list.innerHTML = '';
+                return;
+            }
+            panel.style.display = 'block';
+            list.innerHTML = accountData.missing.map(m => `<div class="card" style="padding:10px; align-items:center;">
+        <div class="meta">
+          <div class="title">${escapeHtml(m.ruleKey || '')}</div>
+          <div class="muted">${t('account.missingHelper')}</div>
+        </div>
+      </div>`).join('');
+        }
+
+        async function loadAccount() {
+            const grid = document.getElementById('itemGrid');
+            grid.innerHTML = `<div class="muted">${t('account.loading')}</div>`;
+            try {
+                const r = await fetch(`/api/trakt/accounts/${encodeURIComponent(username)}/items`);
+                const data = await r.json();
+                if (!r.ok || !data.ok) throw new Error(data.error || 'load_failed');
+                accountData = data;
+                renderAccount();
+            } catch (e) {
+                accountData = null;
+                grid.innerHTML = `<div class="muted">${t('account.loadError')}</div>`;
+                showStatus(t('status.accountLoadError'), 'error');
+            }
+        }
+
+        document.getElementById('btnTheme').addEventListener('click', () => {
+            applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+        });
+
+        document.getElementById('langSelect').addEventListener('change', async (e) => {
+            await loadLang(e.target.value);
+            await loadAccount();
+        });
+
+        (async () => {
+            const storedLang = localStorage.getItem('lang') || 'en';
+            initTheme();
+            await loadLang(storedLang);
+            await loadAccount();
+        })();
+    </script>
+</body>
+
+</html>

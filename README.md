@@ -12,6 +12,7 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
 - Per-title rules: decide which Trakt accounts receive each movie/series.
 - Manual/automatic sync to Trakt, filters for new titles and “Unassigned”.
 - Add/remove Trakt accounts from the UI (device flow) and toggle them on/off.
+- Dedicated per-account page to review what each Trakt user is syncing.
 - Light/dark themes and localization (en/it).
 
 ## Requirements
@@ -36,6 +37,7 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
    Optional:
    ```bash
    export TRAKT_STATE_PATH="trakt_accounts.json"     # Trakt state path
+   export TRAKT_DB_PATH="trakt_sync.db"              # optional; SQLite sync state (defaults next to TRAKT_STATE_PATH)
    export JELLYFIN_STATE_PATH="jellyfin_state.json"  # optional; defaults to same dir as TRAKT_STATE_PATH
    export WATCH_THRESHOLD="0.95"                     # completion threshold (0-1)
    export REFRESH_MINUTES="30"                       # Jellyfin polling interval
@@ -86,7 +88,7 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
    ```
 
 ## Connect Trakt accounts (device flow)
-- In the UI click “Add Trakt account”, copy the code, open the link, authorize: tokens are stored in `TRAKT_STATE_PATH`.
+- In the UI click “Add Trakt account”, copy the code, open the link, authorize: tokens are stored in `TRAKT_STATE_PATH` (JSON); sync rules/last sync timestamps live in the SQLite file at `TRAKT_DB_PATH`.
 - Or via curl:
   1. `POST https://api.trakt.tv/oauth/device/code` with `client_id`.
   2. Authorize using `verification_url` and `user_code`.
@@ -95,7 +97,7 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
 
 ## Using the UI
 - **Jellyfin User(s)**: choose which Jellyfin users are tracked (modal checkboxes). Stored in `JELLYFIN_STATE_PATH`.
-- **Trakt User(s)**: add/remove accounts via device flow; enable/disable with the toggle. Stored in `TRAKT_STATE_PATH`.
+- **Trakt User(s)**: add/remove accounts via device flow; enable/disable with the toggle. Tokens live in `TRAKT_STATE_PATH`; sync state and per-title rules are stored in SQLite (`TRAKT_DB_PATH`). Each card links to a dedicated page for that Trakt user.
 - **Content filters**: search, filter by type (movies/series), alphabet filter, and Trakt-account filter; set per-title rules (checkbox per account). “Unassigned” shows titles with no targets.
 - **Sync to Trakt**: push completed events immediately; also runs automatically every `REFRESH_MINUTES`.
 - **Refresh Jellyfin**: force library/user/cache refresh.

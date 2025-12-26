@@ -12,6 +12,7 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
 - Regole per contenuto: per ogni film/serie decidi a quali account Trakt inviare gli scrobble.
 - Sync automatica/su richiesta verso Trakt, con filtri per nuovi titoli e “Unassigned”.
 - Aggiunta/rimozione account Trakt dalla UI (device flow) e toggle per abilitarli.
+- Pagina dedicata per ogni account Trakt per vedere cosa sincronizza.
 - Tema chiaro/scuro e localizzazione (en/it).
 
 ## Requisiti
@@ -36,6 +37,7 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
    Opzionali:
    ```bash
    export TRAKT_STATE_PATH="trakt_accounts.json"     # percorso stato account Trakt
+   export TRAKT_DB_PATH="trakt_sync.db"              # facoltativo; SQLite con regole di sync (di default accanto a TRAKT_STATE_PATH)
    export JELLYFIN_STATE_PATH="jellyfin_state.json"  # facoltativo; di default usa la stessa cartella di TRAKT_STATE_PATH
    export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
    export REFRESH_MINUTES="30"                       # polling Jellyfin
@@ -86,7 +88,7 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
    ```
 
 ## Collegare account Trakt (device flow)
-- Dalla UI clicca “Add Trakt account”, copia il codice, apri il link, autorizza: i token vengono salvati in `TRAKT_STATE_PATH`.
+- Dalla UI clicca “Add Trakt account”, copia il codice, apri il link, autorizza: i token vengono salvati in `TRAKT_STATE_PATH` (JSON); regole di sync e timestamp sono nel file SQLite `TRAKT_DB_PATH`.
 - In alternativa, via curl:
   1. `POST https://api.trakt.tv/oauth/device/code` con `client_id`.
   2. Autorizza via `verification_url` con `user_code`.
@@ -95,7 +97,7 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
 
 ## Come usare la UI
 - **Jellyfin User(s)**: scegli quali utenti Jellyfin sono monitorati (checkbox nel modale). Persistenza in `JELLYFIN_STATE_PATH`.
-- **Trakt User(s)**: aggiungi/rimuovi account via device flow, attiva/disattiva con la checkbox. Persistenza in `TRAKT_STATE_PATH`.
+- **Trakt User(s)**: aggiungi/rimuovi account via device flow, attiva/disattiva con la checkbox. I token stanno in `TRAKT_STATE_PATH`; regole e stato sync sono nel database SQLite `TRAKT_DB_PATH`. Ogni scheda apre la pagina dedicata dell'account.
 - **Content filters**: ricerca, filtro tipo (film/serie), filtro alfabetico e filtro per account Trakt; assegna le regole per film/serie (checkbox per account). “Unassigned” mostra i titoli senza destinazione.
 - **Sync to Trakt**: invia subito gli eventi completati; la sync gira anche in automatico ogni `REFRESH_MINUTES`.
 - **Refresh Jellyfin**: forza l’aggiornamento di libreria/utenti/cache.
