@@ -320,9 +320,41 @@
             <div class="title">${escapeHtml(it.title || '')}</div>
             <div class="sub">${escapeHtml(subtitle)}</div>
             ${ruleLine}
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="pill" data-allow="${escapeHtml(it.ruleKey || '')}">${t('account.allowSync')}</button>
+            </div>
           </div>
         </div>`;
             }).join('');
+
+            list.querySelectorAll('button[data-allow]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const ruleKey = btn.getAttribute('data-allow');
+                    if (!ruleKey || !accountData) return;
+                    btn.disabled = true;
+                    try {
+                        const r = await fetch('/api/trakt/items/set', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: accountData.username,
+                                providerKey: '',
+                                groupKey: ruleKey,
+                                type: '',
+                                enabled: true
+                            })
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok || !data.ok) throw new Error(data.error || 'enable_failed');
+                        showStatus(t('account.allowed'), 'success');
+                        await loadAccount();
+                    } catch (e) {
+                        showStatus(t('account.allowError'), 'error');
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            });
         }
 
         function renderMissing() {
