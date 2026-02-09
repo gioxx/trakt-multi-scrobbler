@@ -44,12 +44,14 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
    Opzionali:
    ```bash
    export TRAKT_STATE_PATH="trakt_accounts.json"     # percorso stato account Trakt
-   export TRAKT_DB_PATH="trakt_sync.db"              # facoltativo; SQLite con regole di sync (di default accanto a TRAKT_STATE_PATH)
-   export JELLYFIN_STATE_PATH="jellyfin_state.json"  # facoltativo; di default usa la stessa cartella di TRAKT_STATE_PATH
-   export THUMB_CACHE_DIR="/data/thumb_cache"        # facoltativo; cache locale poster (default accanto a TRAKT_STATE_PATH)
-   export THUMB_CACHE_TTL_HOURS="72"                 # facoltativo; aggiorna la cache poster ogni N ore
-   export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
-   export REFRESH_MINUTES="30"                       # polling Jellyfin
+export TRAKT_DB_PATH="trakt_sync.db"              # facoltativo; SQLite con regole di sync (di default accanto a TRAKT_STATE_PATH)
+export JELLYFIN_STATE_PATH="jellyfin_state.json"  # facoltativo; di default usa la stessa cartella di TRAKT_STATE_PATH
+export THUMB_CACHE_DIR="/data/thumb_cache"        # facoltativo; cache locale poster (default accanto a TRAKT_STATE_PATH)
+export THUMB_CACHE_TTL_HOURS="72"                 # facoltativo; aggiorna la cache poster ogni N ore
+export PROXY_IMAGES="true"                        # facoltativo; proxy delle immagini Jellyfin tramite l'app (utile con HTTPS/CDN)
+export IMAGE_CACHE_SECONDS="86400"                # facoltativo; cache-control per le immagini proxate
+export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
+export REFRESH_MINUTES="30"                       # polling Jellyfin
    ```
 
 3) **Avvio locale (Python)**
