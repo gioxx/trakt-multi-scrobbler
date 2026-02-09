@@ -33,6 +33,8 @@ THUMB_CACHE_DIR = os.environ.get("THUMB_CACHE_DIR", "").strip()
 THUMB_CACHE_TTL_HOURS = float(os.environ.get("THUMB_CACHE_TTL_HOURS", "72"))
 PROXY_IMAGES = os.environ.get("PROXY_IMAGES", "true").strip().lower() in ("1", "true", "yes", "on")
 IMAGE_CACHE_SECONDS = int(os.environ.get("IMAGE_CACHE_SECONDS", "86400"))
+JELLYFIN_TIMEOUT = float(os.environ.get("JELLYFIN_TIMEOUT", "8.0"))
+THUMB_FETCH_TIMEOUT = float(os.environ.get("THUMB_FETCH_TIMEOUT", "8.0"))
 
 
 def _default_trakt_db_path() -> str:
@@ -60,7 +62,7 @@ if not THUMB_CACHE_DIR:
 if not (JELLYFIN_URL and JELLYFIN_APIKEY):
     raise RuntimeError("Missing required env vars: JELLYFIN_URL, JELLYFIN_APIKEY")
 
-jellyfin = JellyfinClient(JELLYFIN_URL, JELLYFIN_APIKEY)
+jellyfin = JellyfinClient(JELLYFIN_URL, JELLYFIN_APIKEY, timeout=JELLYFIN_TIMEOUT)
 trakt_service = TraktService(TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET, TRAKT_STATE_PATH, TRAKT_DB_PATH)
 
 cache = Cache()
@@ -206,7 +208,7 @@ async def _cache_thumb(url: str, force: bool = False) -> str:
         except Exception:
             pass
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=THUMB_FETCH_TIMEOUT) as client:
             r = await client.get(url)
             r.raise_for_status()
             with open(fpath, "wb") as dst:
@@ -461,8 +463,14 @@ async def sync_trakt(usernames: List[str] | None = None) -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def _startup() -> None:
-    # Refresh on boot, then keep a background refresh loop.
-    await refresh_cache(force=True)
+    # Kick off an initial refresh without blocking startup (useful when Jellyfin is slow/offline).
+    async def boot_refresh():
+        try:
+            await refresh_cache(force=True)
+        except Exception:
+            pass
+
+    asyncio.create_task(boot_refresh())
 
     async def loop():
         while True:
