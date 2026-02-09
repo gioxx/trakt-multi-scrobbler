@@ -33,6 +33,8 @@ THUMB_CACHE_DIR = os.environ.get("THUMB_CACHE_DIR", "").strip()
 THUMB_CACHE_TTL_HOURS = float(os.environ.get("THUMB_CACHE_TTL_HOURS", "72"))
 PROXY_IMAGES = os.environ.get("PROXY_IMAGES", "true").strip().lower() in ("1", "true", "yes", "on")
 IMAGE_CACHE_SECONDS = int(os.environ.get("IMAGE_CACHE_SECONDS", "86400"))
+JELLYFIN_TIMEOUT = float(os.environ.get("JELLYFIN_TIMEOUT", "5.0"))
+THUMB_FETCH_TIMEOUT = float(os.environ.get("THUMB_FETCH_TIMEOUT", "5.0"))
 JELLYFIN_TIMEOUT = float(os.environ.get("JELLYFIN_TIMEOUT", "8.0"))
 THUMB_FETCH_TIMEOUT = float(os.environ.get("THUMB_FETCH_TIMEOUT", "8.0"))
 
@@ -463,6 +465,17 @@ async def sync_trakt(usernames: List[str] | None = None) -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def _startup() -> None:
+    # Quick reachability probe (non-blocking) to surface Jellyfin URL issues early.
+    async def probe_jellyfin():
+        test_url = f"{JELLYFIN_URL}/System/Info"
+        try:
+            async with httpx.AsyncClient(timeout=JELLYFIN_TIMEOUT) as client:
+                r = await client.get(test_url, headers={"X-Emby-Token": JELLYFIN_APIKEY})
+                r.raise_for_status()
+                logger.info("Jellyfin probe OK: %s", test_url)
+        except Exception as exc:
+            logger.warning("Jellyfin probe failed (%s): %s", test_url, exc)
+
     # Kick off an initial refresh without blocking startup (useful when Jellyfin is slow/offline).
     async def boot_refresh():
         try:
@@ -470,6 +483,7 @@ async def _startup() -> None:
         except Exception:
             pass
 
+    asyncio.create_task(probe_jellyfin())
     asyncio.create_task(boot_refresh())
 
     async def loop():

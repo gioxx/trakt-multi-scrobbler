@@ -50,6 +50,8 @@ export THUMB_CACHE_DIR="/data/thumb_cache"        # optional; local cache for po
 export THUMB_CACHE_TTL_HOURS="72"                 # optional; refresh thumb cache every N hours
 export PROXY_IMAGES="true"                        # optional; proxy Jellyfin images through the app (fixes HTTPS/CDN issues)
 export IMAGE_CACHE_SECONDS="86400"                # optional; cache-control for proxied images
+export JELLYFIN_TIMEOUT="5"                       # optional; per-request timeout (seconds) when calling Jellyfin
+export THUMB_FETCH_TIMEOUT="5"                    # optional; timeout when downloading posters
 export WATCH_THRESHOLD="0.95"                     # completion threshold (0-1)
 export REFRESH_MINUTES="30"                       # Jellyfin polling interval
    ```
