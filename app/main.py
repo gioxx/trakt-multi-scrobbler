@@ -35,6 +35,7 @@ PROXY_IMAGES = os.environ.get("PROXY_IMAGES", "true").strip().lower() in ("1", "
 IMAGE_CACHE_SECONDS = int(os.environ.get("IMAGE_CACHE_SECONDS", "86400"))
 JELLYFIN_TIMEOUT = float(os.environ.get("JELLYFIN_TIMEOUT", "5.0"))
 THUMB_FETCH_TIMEOUT = float(os.environ.get("THUMB_FETCH_TIMEOUT", "5.0"))
+INTERNAL_HTTP_BASE = os.environ.get("INTERNAL_HTTP_BASE", "http://127.0.0.1:8089")
 JELLYFIN_TIMEOUT = float(os.environ.get("JELLYFIN_TIMEOUT", "8.0"))
 THUMB_FETCH_TIMEOUT = float(os.environ.get("THUMB_FETCH_TIMEOUT", "8.0"))
 
@@ -194,6 +195,9 @@ async def _cache_thumb(url: str, force: bool = False) -> str:
     """Cache a remote thumbnail locally and return the local URL."""
     if not url:
         return url
+    request_url = url
+    if url.startswith("/"):
+        request_url = f"{INTERNAL_HTTP_BASE.rstrip('/')}{url}"
     try:
         os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
     except Exception:
@@ -211,7 +215,7 @@ async def _cache_thumb(url: str, force: bool = False) -> str:
             pass
     try:
         async with httpx.AsyncClient(timeout=THUMB_FETCH_TIMEOUT) as client:
-            r = await client.get(url)
+            r = await client.get(request_url)
             r.raise_for_status()
             with open(fpath, "wb") as dst:
                 dst.write(r.content)
@@ -468,13 +472,13 @@ async def _startup() -> None:
     # Quick reachability probe (non-blocking) to surface Jellyfin URL issues early.
     async def probe_jellyfin():
         test_url = f"{JELLYFIN_URL}/System/Info"
-        try:
-            async with httpx.AsyncClient(timeout=JELLYFIN_TIMEOUT) as client:
-                r = await client.get(test_url, headers={"X-Emby-Token": JELLYFIN_APIKEY})
-                r.raise_for_status()
-                logger.info("Jellyfin probe OK: %s", test_url)
-        except Exception as exc:
-            logger.warning("Jellyfin probe failed (%s): %s", test_url, exc)
+    try:
+        async with httpx.AsyncClient(timeout=JELLYFIN_TIMEOUT) as client:
+            r = await client.get(test_url, headers={"X-Emby-Token": JELLYFIN_APIKEY})
+            r.raise_for_status()
+            logger.info("Jellyfin probe OK: %s", test_url)
+    except Exception as exc:
+        logger.warning("Jellyfin probe failed (%s): %s", test_url, exc)
 
     # Kick off an initial refresh without blocking startup (useful when Jellyfin is slow/offline).
     async def boot_refresh():
@@ -521,8 +525,10 @@ async def image_proxy(item_id: str, tag: str):
             r = await client.get(url, headers=headers, params=params)
             r.raise_for_status()
     except Exception as exc:
-        logger.warning("Image proxy failed for %s (%s): %s", item_id, tag, exc)
-        return JSONResponse({"error": "image fetch failed"}, status_code=502)
+        status = getattr(exc.response, "status_code", 502) if hasattr(exc, "response") else 502
+        level = logger.info if status == 404 else logger.warning
+        level("Image proxy failed for %s (%s): %s", item_id, tag, exc)
+        return JSONResponse({"error": "image fetch failed"}, status_code=status)
 
     media_type = r.headers.get("content-type", "image/jpeg")
     resp = Response(content=r.content, media_type=media_type)
