@@ -194,7 +194,8 @@ async def _cache_thumb(url: str, force: bool = False) -> str:
         os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
     except Exception:
         return url
-    fname = hashlib.sha256(url.encode("utf-8")).hexdigest() + ".jpg"
+    # Deterministic cache key for URL; not used for password hashing.
+    fname = hashlib.blake2b(url.encode("utf-8"), digest_size=16).hexdigest() + ".jpg"
     fpath = os.path.join(THUMB_CACHE_DIR, fname)
     ttl_seconds = max(THUMB_CACHE_TTL_HOURS, 0) * 3600
     now = time.time()
