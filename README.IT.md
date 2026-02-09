@@ -50,6 +50,9 @@ export THUMB_CACHE_DIR="/data/thumb_cache"        # facoltativo; cache locale po
 export THUMB_CACHE_TTL_HOURS="72"                 # facoltativo; aggiorna la cache poster ogni N ore
 export PROXY_IMAGES="true"                        # facoltativo; proxy delle immagini Jellyfin tramite l'app (utile con HTTPS/CDN)
 export IMAGE_CACHE_SECONDS="86400"                # facoltativo; cache-control per le immagini proxate
+export JELLYFIN_TIMEOUT="5"                       # facoltativo; timeout (secondi) per le chiamate a Jellyfin
+export THUMB_FETCH_TIMEOUT="5"                    # facoltativo; timeout per il download delle locandine
+export INTERNAL_HTTP_BASE="http://127.0.0.1:8089" # facoltativo; base interna usata per cache poster quando PROXY_IMAGES=true
 export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
 export REFRESH_MINUTES="30"                       # polling Jellyfin
    ```

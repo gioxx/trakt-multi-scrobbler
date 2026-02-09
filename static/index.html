@@ -10,6 +10,10 @@
 </head>
 
 <body>
+    <div id="bootLoading" style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(120deg, rgba(9,13,23,.9), rgba(14,19,32,.9)); color:#e8eefc; z-index:9999; font-size:18px; gap:10px;">
+        <span>⏳</span>
+        <span id="bootLoadingText">Loading data…</span>
+    </div>
     <header>
         <div class="brand" style="display:flex; align-items:center; gap:8px;">
             <a href="/" style="display:flex; align-items:center; gap:8px; color:inherit; text-decoration:none;">
@@ -38,6 +42,9 @@
     </header>
 
     <main>
+        <div id="backendStatus" style="display:none; margin-bottom:10px; padding:10px 12px; border-radius:12px; border:1px solid #613b2f; background:#2d1a15; color:#f3d9d0; font-weight:600;">
+            ⚠️ Jellyfin non raggiungibile. Riprova più tardi o controlla JELLYFIN_URL / rete.
+        </div>
         <section class="panel">
             <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
                 <div>
@@ -191,6 +198,9 @@
     <script>
         let translations = {};
         let currentLang = 'en';
+        const bootLoading = document.getElementById('bootLoading');
+        const bootLoadingText = document.getElementById('bootLoadingText');
+        const backendStatus = document.getElementById('backendStatus');
         let jellyfinUsers = [];
         let traktAccounts = [];
         let devicePollTimer = null;
@@ -220,6 +230,12 @@
             toastTimer = setTimeout(() => {
                 el.style.display = 'none';
             }, 2600);
+        }
+
+        function setBackendStatus(message = '', visible = false) {
+            if (!backendStatus) return;
+            backendStatus.textContent = message || '⚠️ Jellyfin non raggiungibile. Riprova o controlla JELLYFIN_URL.';
+            backendStatus.style.display = visible ? 'block' : 'none';
         }
 
         function applyTheme(theme) {
@@ -331,6 +347,7 @@
                 btnTheme.setAttribute('aria-label', currentTheme === 'light' ? t('theme.dark') : t('theme.light'));
                 btnTheme.textContent = currentTheme === 'light' ? '◐' : '◑';
             }
+            if (bootLoadingText) bootLoadingText.textContent = t('loading') || 'Loading data…';
         }
 
         // Jellyfin users selector
@@ -374,10 +391,17 @@
         }
 
         async function loadJellyfinUsers() {
-            const r = await fetch('/api/users');
-            const data = await r.json();
-            jellyfinUsers = data.users || [];
-            renderJellyfinUsers();
+            try {
+                const r = await fetch('/api/users');
+                if (!r.ok) throw new Error('users');
+                const data = await r.json();
+                jellyfinUsers = data.users || [];
+                renderJellyfinUsers();
+                setBackendStatus('', false);
+            } catch (e) {
+                setBackendStatus('⚠️ Jellyfin non raggiungibile (users).', true);
+                throw e;
+            }
         }
 
         function renderRecent() {
@@ -412,10 +436,17 @@
         }
 
         async function loadRecent() {
-            const r = await fetch('/api/recent');
-            const data = await r.json();
-            recentItems = data.items || [];
-            renderRecent();
+            try {
+                const r = await fetch('/api/recent');
+                if (!r.ok) throw new Error('recent');
+                const data = await r.json();
+                recentItems = data.items || [];
+                renderRecent();
+                setBackendStatus('', false);
+            } catch (e) {
+                setBackendStatus('⚠️ Jellyfin non raggiungibile (recent).', true);
+                throw e;
+            }
         }
 
         function openJellyfinModal() {
@@ -711,11 +742,18 @@
         }
 
         async function loadContentItems() {
-            const r = await fetch('/api/trakt/items');
-            const data = await r.json();
-            contentItems = data.items || [];
-            renderOrphans();
-            renderContentList();
+            try {
+                const r = await fetch('/api/trakt/items');
+                if (!r.ok) throw new Error('items');
+                const data = await r.json();
+                contentItems = data.items || [];
+                renderOrphans();
+                renderContentList();
+                setBackendStatus('', false);
+            } catch (e) {
+                setBackendStatus('⚠️ Jellyfin/Trakt non raggiungibili (items).', true);
+                throw e;
+            }
         }
 
         function renderOrphans() {
@@ -913,20 +951,27 @@
         }
 
         async function loadSummary() {
-            const r = await fetch('/api/summary');
-            const s = await r.json();
-            const date = s.lastRefresh ? new Date(s.lastRefresh * 1000).toLocaleString() : '—';
-            const trakt = s.traktConfigured ? t('label.traktOn') : t('label.traktOff');
-            const movies = s.movies ?? '0';
-            const shows = s.shows ?? '0';
-            document.getElementById('summary').textContent = `${t('label.libraryCounts', { movies, shows })} · ${t('header.summaryIcon')} ${t('summary.updated', { date })}`;
-            const selectedUsers = s.selectedUsers ?? s.users ?? 0;
-            const totalUsers = s.totalUsers ?? s.users ?? 0;
-            document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModal')} ${t('label.usersSuffix')} · ${selectedUsers}/${totalUsers}`;
-            const traktAccounts = s.traktAccounts ?? [];
-            const traktTotal = traktAccounts.length || (s.traktTotal ?? 0) || 0;
-            const traktEnabled = traktAccounts.filter(a => a && a.enabled).length;
-            document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')} · ${traktEnabled}/${traktTotal} · ${trakt}`;
+            try {
+                const r = await fetch('/api/summary');
+                if (!r.ok) throw new Error('summary');
+                const s = await r.json();
+                const date = s.lastRefresh ? new Date(s.lastRefresh * 1000).toLocaleString() : '—';
+                const trakt = s.traktConfigured ? t('label.traktOn') : t('label.traktOff');
+                const movies = s.movies ?? '0';
+                const shows = s.shows ?? '0';
+                document.getElementById('summary').textContent = `${t('label.libraryCounts', { movies, shows })} · ${t('header.summaryIcon')} ${t('summary.updated', { date })}`;
+                const selectedUsers = s.selectedUsers ?? s.users ?? 0;
+                const totalUsers = s.totalUsers ?? s.users ?? 0;
+                document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModal')} ${t('label.usersSuffix')} · ${selectedUsers}/${totalUsers}`;
+                const traktAccounts = s.traktAccounts ?? [];
+                const traktTotal = traktAccounts.length || (s.traktTotal ?? 0) || 0;
+                const traktEnabled = traktAccounts.filter(a => a && a.enabled).length;
+                document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')} · ${traktEnabled}/${traktTotal} · ${trakt}`;
+                setBackendStatus('', false);
+            } catch (e) {
+                setBackendStatus('⚠️ Jellyfin non raggiungibile (summary).', true);
+                throw e;
+            }
         }
 
         document.getElementById('btnRefresh').addEventListener('click', async () => {
@@ -1022,25 +1067,31 @@
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';
             initTheme();
-            await loadLang(storedLang);
-            document.getElementById('btnBackup').title = t('button.backup');
-            document.getElementById('btnBackup').textContent = `💾 ${t('button.backup')}`;
-            document.getElementById('btnBackupDownload').title = t('button.backup');
-            document.getElementById('btnBackupRestore').title = t('button.restore');
-            document.getElementById('backupTitle').textContent = t('backup.title');
-            document.getElementById('backupHelper').textContent = t('backup.helper');
-            document.getElementById('backupHint').textContent = t('backup.hint');
-            document.getElementById('backupDownloadLabel').textContent = t('button.backup');
-            document.getElementById('backupRestoreLabel').textContent = t('button.restore');
-            document.getElementById('cacheTitle').textContent = t('cache.title');
-            document.getElementById('cacheHelper').textContent = t('cache.helper');
-            document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
-            await loadSummary();
-            await loadJellyfinUsers();
-            await loadRecent();
-            await loadTraktAccounts();
-            await loadContentItems();
-            await loadCacheStatus();
+            try {
+                await loadLang(storedLang);
+                document.getElementById('btnBackup').title = t('button.backup');
+                document.getElementById('btnBackup').textContent = `💾 ${t('button.backup')}`;
+                document.getElementById('btnBackupDownload').title = t('button.backup');
+                document.getElementById('btnBackupRestore').title = t('button.restore');
+                document.getElementById('backupTitle').textContent = t('backup.title');
+                document.getElementById('backupHelper').textContent = t('backup.helper');
+                document.getElementById('backupHint').textContent = t('backup.hint');
+                document.getElementById('backupDownloadLabel').textContent = t('button.backup');
+                document.getElementById('backupRestoreLabel').textContent = t('button.restore');
+                document.getElementById('cacheTitle').textContent = t('cache.title');
+                document.getElementById('cacheHelper').textContent = t('cache.helper');
+                document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
+                await loadSummary();
+                await loadJellyfinUsers();
+                await loadRecent();
+                await loadTraktAccounts();
+                await loadContentItems();
+                await loadCacheStatus();
+            } catch (e) {
+                showStatus('Initial load failed, retry with Refresh.', 'error');
+            } finally {
+                if (bootLoading) bootLoading.style.display = 'none';
+            }
         })();
     </script>
 </body>
