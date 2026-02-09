@@ -472,13 +472,13 @@ async def _startup() -> None:
     # Quick reachability probe (non-blocking) to surface Jellyfin URL issues early.
     async def probe_jellyfin():
         test_url = f"{JELLYFIN_URL}/System/Info"
-    try:
-        async with httpx.AsyncClient(timeout=JELLYFIN_TIMEOUT) as client:
-            r = await client.get(test_url, headers={"X-Emby-Token": JELLYFIN_APIKEY})
-            r.raise_for_status()
-            logger.info("Jellyfin probe OK: %s", test_url)
-    except Exception as exc:
-        logger.warning("Jellyfin probe failed (%s): %s", test_url, exc)
+        try:
+            async with httpx.AsyncClient(timeout=JELLYFIN_TIMEOUT) as client:
+                r = await client.get(test_url, headers={"X-Emby-Token": JELLYFIN_APIKEY})
+                r.raise_for_status()
+                logger.info("Jellyfin probe OK: %s", test_url)
+        except Exception as exc:
+            logger.warning("Jellyfin probe failed (%s): %s", test_url, exc)
 
     # Kick off an initial refresh without blocking startup (useful when Jellyfin is slow/offline).
     async def boot_refresh():
