@@ -139,5 +139,10 @@
   "account.noBlocked": "No content is excluded for this account.",
   "account.allowSync": "Allow sync for this account",
   "account.allowed": "Enabled.",
-  "account.allowError": "Could not enable."
+  "account.allowError": "Could not enable.",
+  "account.rule.imdb": "IMDb",
+  "account.rule.tmdb": "TMDB",
+  "account.rule.tvdb": "TVDB",
+  "account.rule.jellyfin": "Jellyfin ID",
+  "account.rule.unknown": "Rule key"
 }

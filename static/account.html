@@ -137,6 +137,21 @@
             return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`{${k}}`, 'g'), vars[k]), base);
         }
 
+        function formatRuleKey(ruleKey) {
+            const raw = String(ruleKey || '').trim();
+            if (!raw) return '';
+            const idx = raw.indexOf(':');
+            if (idx <= 0) {
+                return `${t('account.rule.jellyfin')}: ${raw}`;
+            }
+            const provider = raw.slice(0, idx).toLowerCase();
+            const ident = raw.slice(idx + 1);
+            if (provider === 'imdb') return `${t('account.rule.imdb')}: ${ident}`;
+            if (provider === 'tmdb') return `${t('account.rule.tmdb')}: ${ident}`;
+            if (provider === 'tvdb') return `${t('account.rule.tvdb')}: ${ident}`;
+            return `${t('account.rule.unknown')}: ${raw}`;
+        }
+
         function renderFooterMeta() {
             const nameEl = document.getElementById('footerProjectName');
             const descEl = document.getElementById('footerProjectDesc');
@@ -321,7 +336,7 @@
             grid.innerHTML = filtered.map(it => {
                 const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
                 const poster = it.thumb ? `<img src="${it.thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`;
-                const ruleLine = it.ruleKey ? `<div class="muted" style="font-size:12px;">${escapeHtml(it.ruleKey)}</div>` : '';
+                const ruleLine = it.ruleKey ? `<div class="muted" style="font-size:12px;">${escapeHtml(formatRuleKey(it.ruleKey))}</div>` : '';
                 return `<div class="card">
           <div class="poster">${poster}</div>
           <div class="meta">
@@ -381,7 +396,7 @@
             list.innerHTML = blocked.map(it => {
                 const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
                 const poster = it.thumb ? `<img src="${it.thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`;
-                const ruleLine = it.ruleKey ? `<div class="muted" style="font-size:12px;">${escapeHtml(it.ruleKey)}</div>` : '';
+                const ruleLine = it.ruleKey ? `<div class="muted" style="font-size:12px;">${escapeHtml(formatRuleKey(it.ruleKey))}</div>` : '';
                 return `<div class="card">
           <div class="poster">${poster}</div>
           <div class="meta">
@@ -444,7 +459,7 @@
             panel.style.display = 'block';
             list.innerHTML = accountData.missing.map(m => `<div class="card" style="padding:10px; align-items:center;">
         <div class="meta">
-          <div class="title">${escapeHtml(m.ruleKey || '')}</div>
+          <div class="title">${escapeHtml(formatRuleKey(m.ruleKey || ''))}</div>
           <div class="muted">${t('account.missingHelper')}</div>
         </div>
       </div>`).join('');
