@@ -132,5 +132,8 @@
   "button.restore": "Ripristina",
   "backup.title": "Backup & Ripristino",
   "backup.helper": "Scarica la configurazione o ripristinala su una nuova installazione.",
-  "backup.hint": "Il backup include token Trakt (JSON), regole SQLite e stato Jellyfin."
+  "backup.hint": "Il backup include token Trakt (JSON), regole SQLite e stato Jellyfin.",
+  "footer.description": "Dashboard di sincronizzazione da Jellyfin a Trakt per configurazioni multi-utente.",
+  "footer.versionLabel": "Versione",
+  "footer.repoLabel": "Repository GitHub"
 }

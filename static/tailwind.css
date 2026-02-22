@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Source+Sans+3:wght@400;600;700&display=swap');
-
 :root {
   color-scheme: dark;
   --bg: #030712;
@@ -39,7 +37,7 @@ body {
 
 body {
   margin: 0;
-  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -302,6 +300,15 @@ button.active,
   grid-template-columns: 1fr auto;
 }
 
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: end;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 @keyframes panel-enter {
   from {
     opacity: 0;
@@ -317,9 +324,5 @@ button.active,
 @media (max-width: 900px) {
   .alpha-row {
     grid-template-columns: repeat(9, minmax(26px, 1fr));
-  }
-
-  .footer-grid {
-    grid-template-columns: 1fr;
   }
 }

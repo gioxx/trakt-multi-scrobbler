@@ -103,7 +103,7 @@
                     <div class="footer-title" id="footerProjectName">Trakt Multi-Scrobbler</div>
                     <div class="footer-meta" id="footerProjectDesc">Jellyfin to Trakt sync dashboard.</div>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                <div class="footer-actions">
                     <div class="pill" id="footerVersion">Version —</div>
                     <a class="pill" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener" aria-label="GitHub repository" title="GitHub repository">
                         <img src="/static/github.svg" alt="GitHub" width="16" height="16" style="display:block;" />
@@ -293,10 +293,16 @@
             const descEl = document.getElementById('footerProjectDesc');
             const versionEl = document.getElementById('footerVersion');
             const repoEl = document.getElementById('footerRepoLink');
+            const versionLabel = t('footer.versionLabel');
+            const repoLabel = t('footer.repoLabel');
             if (nameEl) nameEl.textContent = appMeta.name || 'Trakt Multi-Scrobbler';
-            if (descEl) descEl.textContent = appMeta.description || 'Jellyfin to Trakt sync dashboard.';
-            if (versionEl) versionEl.textContent = `Version ${appMeta.version || '—'}`;
-            if (repoEl) repoEl.href = appMeta.repository || 'https://github.com/gioxx/trakt-multi-scrobbler';
+            if (descEl) descEl.textContent = t('footer.description') || appMeta.description || 'Jellyfin to Trakt sync dashboard.';
+            if (versionEl) versionEl.textContent = `${versionLabel || 'Version'} ${appMeta.version || '—'}`;
+            if (repoEl) {
+                repoEl.href = appMeta.repository || 'https://github.com/gioxx/trakt-multi-scrobbler';
+                repoEl.setAttribute('title', repoLabel || 'GitHub repository');
+                repoEl.setAttribute('aria-label', repoLabel || 'GitHub repository');
+            }
         }
 
         async function loadAppMeta() {
