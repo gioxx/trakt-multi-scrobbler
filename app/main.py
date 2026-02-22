@@ -49,6 +49,11 @@ except ValueError:
 THUMB_MAX_WIDTH = max(0, THUMB_MAX_WIDTH)
 THUMB_MAX_HEIGHT = max(0, THUMB_MAX_HEIGHT)
 try:
+    THUMB_MAX_DOWNLOAD_BYTES = int(os.environ.get("THUMB_MAX_DOWNLOAD_BYTES", str(8 * 1024 * 1024)))
+except ValueError:
+    THUMB_MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024
+THUMB_MAX_DOWNLOAD_BYTES = max(256 * 1024, THUMB_MAX_DOWNLOAD_BYTES)
+try:
     THUMB_REBUILD_BATCH = int(os.environ.get("THUMB_REBUILD_BATCH", "5"))
 except ValueError:
     THUMB_REBUILD_BATCH = 5
@@ -244,10 +249,20 @@ async def _cache_thumb(url: str, force: bool = False) -> str:
             pass
     try:
         async with httpx.AsyncClient(timeout=THUMB_FETCH_TIMEOUT) as client:
-            r = await client.get(request_url)
+            r = await client.get(request_url, follow_redirects=True)
             r.raise_for_status()
+            content_length = int(r.headers.get("content-length") or "0")
+            if content_length > THUMB_MAX_DOWNLOAD_BYTES:
+                return url
+            body = bytearray()
+            async for chunk in r.aiter_bytes():
+                if not chunk:
+                    continue
+                body.extend(chunk)
+                if len(body) > THUMB_MAX_DOWNLOAD_BYTES:
+                    return url
             with open(fpath, "wb") as dst:
-                dst.write(r.content)
+                dst.write(body)
             os.utime(fpath, (now, now))
             return f"/thumbs/{fname}"
     except Exception:
