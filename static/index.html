@@ -1148,8 +1148,10 @@
             const storedLang = normalizeLang(localStorage.getItem('lang') || 'en');
             initTheme();
             try {
-                await loadAppMeta();
-                await loadLang(storedLang);
+                await Promise.all([
+                    loadAppMeta(),
+                    loadLang(storedLang),
+                ]);
                 document.getElementById('btnBackup').title = t('button.backup');
                 document.getElementById('btnBackup').textContent = `💾 ${t('button.backup')}`;
                 document.getElementById('btnBackupDownload').title = t('button.backup');
@@ -1162,17 +1164,19 @@
                 document.getElementById('cacheTitle').textContent = t('cache.title');
                 document.getElementById('cacheHelper').textContent = t('cache.helper');
                 document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
-                await loadSummary();
-                await loadJellyfinUsers();
-                await loadRecent();
-                await loadTraktAccounts();
-                await loadContentItems();
-                await loadCacheStatus();
             } catch (e) {
                 showStatus('Initial load failed, retry with Refresh.', 'error');
             } finally {
                 if (bootLoading) bootLoading.style.display = 'none';
             }
+            Promise.allSettled([
+                loadSummary(),
+                loadJellyfinUsers(),
+                loadRecent(),
+                loadTraktAccounts(),
+                loadContentItems(),
+                loadCacheStatus(),
+            ]);
         })();
     </script>
 </body>
