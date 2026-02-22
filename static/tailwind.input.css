@@ -44,6 +44,8 @@
 
   body {
     @apply m-0 font-sans text-[var(--text)] antialiased;
+    position: relative;
+    isolation: isolate;
     background-image:
       radial-gradient(900px 500px at 12% -15%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 55%),
       radial-gradient(700px 420px at 88% 0%, color-mix(in srgb, #14b8a6 18%, transparent), transparent 62%),
@@ -57,7 +59,7 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 0;
+    z-index: 1;
     opacity: var(--bg-icons-opacity);
     background-image: var(--bg-icons);
     background-repeat: repeat;
@@ -67,7 +69,7 @@
 
   body > * {
     position: relative;
-    z-index: 1;
+    z-index: 2;
   }
 
   button {
@@ -220,19 +222,19 @@
   }
 
   .footer-grid {
-    @apply flex items-center gap-3;
-    flex-wrap: nowrap;
-    justify-content: space-between;
+    @apply items-center gap-3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .footer-text {
     min-width: 0;
-    flex: 1 1 auto;
   }
 
   .footer-actions {
     @apply flex items-center gap-2;
-    margin-left: auto;
+    justify-content: flex-end;
+    justify-self: end;
     flex-wrap: nowrap;
     white-space: nowrap;
   }
@@ -256,6 +258,7 @@
   }
 
   .footer-grid {
-    align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 }
