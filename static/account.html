@@ -92,6 +92,21 @@
         </section>
     </main>
 
+    <footer class="app-footer">
+        <div class="app-footer-inner">
+            <div class="app-footer-grid">
+                <div>
+                    <div class="footer-title" id="footerProjectName">Trakt Multi-Scrobbler</div>
+                    <div class="footer-meta" id="footerProjectDesc">Jellyfin to Trakt sync dashboard.</div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <div class="pill" id="footerVersion">Version —</div>
+                    <a class="pill" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener">GitHub repo</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <div id="toast" style="position:fixed; right:16px; bottom:16px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); box-shadow:0 4px 14px rgba(0,0,0,0.25); display:none; z-index:9999; min-width:200px; max-width:320px; background: var(--panel); color: var(--text);"></div>
 
     <script>
@@ -101,6 +116,12 @@
         let currentTheme = 'dark';
         let typeFilter = 'all';
         let alphaFilter = '';
+        let appMeta = {
+            name: 'Trakt Multi-Scrobbler',
+            version: '0.4.0',
+            repository: 'https://github.com/gioxx/trakt-multi-scrobbler',
+            description: 'Jellyfin to Trakt sync dashboard.'
+        };
         const username = decodeURIComponent((window.location.pathname.split('/').filter(Boolean).pop() || '').replace(/%2F/g, '/'));
 
         function escapeHtml(s) {
@@ -112,6 +133,33 @@
         function t(key, vars = {}) {
             const base = translations[key] || translations[key.replace(/:[^.]+/, '')] || key;
             return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`{${k}}`, 'g'), vars[k]), base);
+        }
+
+        function renderFooterMeta() {
+            const nameEl = document.getElementById('footerProjectName');
+            const descEl = document.getElementById('footerProjectDesc');
+            const versionEl = document.getElementById('footerVersion');
+            const repoEl = document.getElementById('footerRepoLink');
+            if (nameEl) nameEl.textContent = appMeta.name || 'Trakt Multi-Scrobbler';
+            if (descEl) descEl.textContent = appMeta.description || 'Jellyfin to Trakt sync dashboard.';
+            if (versionEl) versionEl.textContent = `Version ${appMeta.version || '—'}`;
+            if (repoEl) repoEl.href = appMeta.repository || 'https://github.com/gioxx/trakt-multi-scrobbler';
+        }
+
+        async function loadAppMeta() {
+            try {
+                const r = await fetch('/static/app_meta.json', { cache: 'no-cache' });
+                if (r.ok) {
+                    const data = await r.json();
+                    appMeta = {
+                        ...appMeta,
+                        ...(data || {}),
+                    };
+                }
+            } catch (e) {
+                // Keep local defaults if meta file is unavailable.
+            }
+            renderFooterMeta();
         }
 
         function showStatus(message, type = 'info') {
@@ -215,6 +263,7 @@
             countPill.textContent = t('account.counts', { movies, shows });
             summary.textContent = t('account.summary', { user: name, status: statusLabel });
             document.title = `${name} · Trakt Multi-Scrobbler`;
+            renderFooterMeta();
 
             renderItems();
             renderMissing();
@@ -463,6 +512,7 @@
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';
             initTheme();
+            await loadAppMeta();
             await loadLang(storedLang);
             renderAlphaBar();
             await loadAccount();

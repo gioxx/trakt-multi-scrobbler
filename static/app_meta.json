@@ -1,0 +1,6 @@
+{
+  "name": "Trakt Multi-Scrobbler",
+  "version": "0.4.0",
+  "repository": "https://github.com/gioxx/trakt-multi-scrobbler",
+  "description": "Jellyfin to Trakt sync dashboard for multi-user setups"
+}

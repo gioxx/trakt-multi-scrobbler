@@ -45,6 +45,8 @@ Optional UI stylesheet refresh (Tailwind, local build):
    npm run watch:css
    ```
 
+Project footer metadata (name/version/repo) is read from `static/app_meta.json`.
+
 2) **Minimum environment vars**
    ```bash
    export JELLYFIN_URL="https://your-jellyfin"

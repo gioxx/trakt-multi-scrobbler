@@ -45,6 +45,8 @@ Aggiornamento opzionale dello stylesheet UI (Tailwind, build locale):
    npm run watch:css
    ```
 
+I metadati nel footer (nome/versione/repo) vengono letti da `static/app_meta.json`.
+
 2) **Variabili d’ambiente minime**
    ```bash
    export JELLYFIN_URL="https://il-tuo-jellyfin"
