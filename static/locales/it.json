@@ -1,6 +1,6 @@
 {
   "title": "Trakt Multi-Scrobbler",
-  "subtitle": "Segna su Trakt ciò che guardi in Jellyfin, per più utenti.",
+  "subtitle": "Sincronizza ciò che guardi su Jellyfin con uno o più utenti Trakt.",
   "header.summaryIcon": "ℹ️",
   "header.langIcon": "🌐",
   "summary.updated": "aggiornato: {date}",
