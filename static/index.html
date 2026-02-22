@@ -35,7 +35,7 @@
                 <option value="en">🌐 EN</option>
                 <option value="it">🌐 IT</option>
             </select>
-            <button id="btnTheme" class="pill" style="cursor:pointer;">⌗</button>
+            <button id="btnTheme" class="pill" style="cursor:pointer;">🌙</button>
         </div>
     </header>
 
@@ -262,7 +262,7 @@
             localStorage.setItem('theme', theme);
             const btn = document.getElementById('btnTheme');
             if (btn) {
-                btn.textContent = theme === 'light' ? '◐' : '◑';
+                btn.textContent = theme === 'light' ? '☀️' : '🌙';
                 btn.setAttribute('aria-label', theme === 'light' ? t('theme.dark') : t('theme.light'));
             }
         }
@@ -400,7 +400,7 @@
             const btnTheme = document.getElementById('btnTheme');
             if (btnTheme) {
                 btnTheme.setAttribute('aria-label', currentTheme === 'light' ? t('theme.dark') : t('theme.light'));
-                btnTheme.textContent = currentTheme === 'light' ? '◐' : '◑';
+                btnTheme.textContent = currentTheme === 'light' ? '☀️' : '🌙';
             }
             if (bootLoadingText) bootLoadingText.textContent = t('loading') || 'Loading data…';
             renderFooterMeta();
