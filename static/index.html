@@ -288,6 +288,10 @@
             return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`{${k}}`, 'g'), vars[k]), base);
         }
 
+        function userNoun(count) {
+            return count === 1 ? t('label.user.one') : t('label.user.many');
+        }
+
         function renderFooterMeta() {
             const nameEl = document.getElementById('footerProjectName');
             const descEl = document.getElementById('footerProjectDesc');
@@ -356,8 +360,8 @@
             document.getElementById('brandSubtitle').textContent = t('subtitle');
             document.getElementById('btnRefresh').textContent = t('button.refresh');
             document.getElementById('btnSync').textContent = t('button.sync');
-            document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModal')} ${t('label.usersSuffix')}`;
-            document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')}`;
+            document.getElementById('btnJellyfinModal').textContent = t('button.jellyfinModalCount', { noun: userNoun(2) });
+            document.getElementById('btnTraktModal').textContent = t('button.traktModalCount', { noun: userNoun(2) });
             document.getElementById('jellyfinTitle').textContent = t('panel.jellyfinTitle');
             document.getElementById('jellyfinHelper').textContent = t('panel.jellyfinHelper');
             document.getElementById('traktTitle').textContent = t('panel.traktTitle');
@@ -1014,11 +1018,11 @@
                 document.getElementById('summary').textContent = `${t('label.libraryCounts', { movies, shows })} · ${t('header.summaryIcon')} ${t('summary.updated', { date })}`;
                 const selectedUsers = s.selectedUsers ?? s.users ?? 0;
                 const totalUsers = s.totalUsers ?? s.users ?? 0;
-                document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModal')} ${t('label.usersSuffix')} · ${selectedUsers}/${totalUsers}`;
+                document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModalCount', { noun: userNoun(totalUsers) })} · ${selectedUsers}/${totalUsers}`;
                 const traktAccounts = s.traktAccounts ?? [];
                 const traktTotal = traktAccounts.length || (s.traktTotal ?? 0) || 0;
                 const traktEnabled = traktAccounts.filter(a => a && a.enabled).length;
-                document.getElementById('btnTraktModal').textContent = `${t('button.traktModal')} ${t('label.usersSuffix')} · ${traktEnabled}/${traktTotal} · ${trakt}`;
+                document.getElementById('btnTraktModal').textContent = `${t('button.traktModalCount', { noun: userNoun(traktTotal) })} · ${traktEnabled}/${traktTotal} · ${trakt}`;
                 setBackendStatus('', false);
             } catch (e) {
                 setBackendStatus('⚠️ Jellyfin non raggiungibile (summary).', true);
