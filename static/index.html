@@ -25,7 +25,7 @@
                 </div>
             </a>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div class="header-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
             <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin User(s)</button>
             <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt User(s)</button>
             <div id="summary" class="pill">ℹ️ Loading…</div>
@@ -35,7 +35,7 @@
                 <option value="en">🌐 EN</option>
                 <option value="it">🌐 IT</option>
             </select>
-            <button id="btnTheme" class="pill" style="cursor:pointer;">🌙</button>
+            <button id="btnTheme" class="pill icon-btn" style="cursor:pointer;" aria-label="Toggle theme">🌙</button>
         </div>
     </header>
 

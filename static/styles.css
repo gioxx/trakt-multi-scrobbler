@@ -50,6 +50,14 @@ header {
     letter-spacing: .2px;
 }
 
+.header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .pill {
     font-size: 12px;
     padding: 6px 10px;
@@ -69,6 +77,12 @@ header {
 
 #btnTheme {
     font-size: 14px;
+}
+
+.icon-btn {
+    font-size: 16px;
+    line-height: 1;
+    padding: 8px 12px;
 }
 
 main {
