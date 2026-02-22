@@ -6,12 +6,6 @@
 
 Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user on both sides, per-title rules, light/dark themes, and Trakt account management via device flow.
 
-## Release 0.2 highlights
-- SQLite storage for sync rules/last sync (tokens stay in JSON) with auto-migration from older JSON installs.
-- Per-account pages: inspect assigned titles, filter/search, remove associations, and sync a single Trakt account on demand.
-- Backup/restore from the UI (ZIP with Trakt tokens JSON + SQLite db + Jellyfin state).
-- UI tweaks: per-account status toggle, alpha/type filters on account pages, header backup shortcut.
-
 ## Features
 - Reads Jellyfin library (movies/episodes) with TMDB/IMDB/TVDB IDs and posters.
 - Choose which Jellyfin users are tracked as the “source” (persisted).

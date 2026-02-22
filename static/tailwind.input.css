@@ -17,7 +17,7 @@
     --pill-text: #dbe9ff;
     --poster-bg: #07101f;
     --bg-icons: url("/static/bg-collage-dark.svg");
-    --bg-icons-opacity: 0.58;
+    --bg-icons-opacity: 0.42;
   }
 
   [data-theme="light"] {
@@ -34,7 +34,7 @@
     --pill-text: #0f1c33;
     --poster-bg: #dfeafb;
     --bg-icons: url("/static/bg-collage-light.svg");
-    --bg-icons-opacity: 0.44;
+    --bg-icons-opacity: 0.34;
   }
 
   html,
