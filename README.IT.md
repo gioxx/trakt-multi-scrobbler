@@ -59,8 +59,7 @@ I metadati nel footer (nome/versione/repo) vengono letti da `static/app_meta.jso
    export IMAGE_CACHE_SECONDS="86400"                # facoltativo; cache-control per le immagini proxate
    export JELLYFIN_TIMEOUT="5"                       # facoltativo; timeout (secondi) per le chiamate a Jellyfin
    export THUMB_FETCH_TIMEOUT="5"                    # facoltativo; timeout per il download delle locandine
-   export THUMB_MAX_WIDTH="600"                      # facoltativo; larghezza massima poster richiesta a Jellyfin (px)
-   export THUMB_MAX_HEIGHT="900"                     # facoltativo; altezza massima poster richiesta a Jellyfin (px)
+   export THUMB_MAX_HEIGHT="500"                     # facoltativo; altezza massima poster richiesta a Jellyfin (px), larghezza auto-adattata
    export INTERNAL_HTTP_BASE="http://127.0.0.1:8089" # facoltativo; base interna usata per cache poster quando PROXY_IMAGES=true
    export WATCH_THRESHOLD="0.95"                     # soglia completamento (0-1)
    export REFRESH_MINUTES="30"                       # polling Jellyfin
