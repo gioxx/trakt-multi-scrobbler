@@ -132,7 +132,7 @@
   "account.loading": "Caricamento account…",
   "account.back": "← Panoramica",
   "account.summary": "{user}: {status}",
-  "account.remove": "Disattiva lo scrobbling",
+  "account.remove": "Disabilita lo scrobbling",
   "account.removed": "Associazione rimossa.",
   "account.removeError": "Impossibile rimuovere l'associazione.",
   "account.syncNow": "Sincronizza ora questo account su Trakt",
