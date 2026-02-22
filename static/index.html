@@ -234,6 +234,12 @@
             description: 'Jellyfin to Trakt sync dashboard.'
         };
 
+        function normalizeLang(lang) {
+            const value = String(lang || 'en').toLowerCase();
+            if (value.startsWith('it')) return 'it';
+            return 'en';
+        }
+
         function showStatus(message, type = 'info') {
             const el = document.getElementById('toast');
             if (!el) return;
@@ -297,8 +303,8 @@
             const descEl = document.getElementById('footerProjectDesc');
             const versionEl = document.getElementById('footerVersion');
             const repoEl = document.getElementById('footerRepoLink');
-            const versionLabel = t('footer.versionLabel');
-            const repoLabel = t('footer.repoLabel');
+            const versionLabel = t('footer.versionLabel') === 'footer.versionLabel' ? 'Version' : t('footer.versionLabel');
+            const repoLabel = t('footer.repoLabel') === 'footer.repoLabel' ? 'GitHub repository' : t('footer.repoLabel');
             if (nameEl) nameEl.textContent = appMeta.name || t('title') || 'Trakt Multi-Scrobbler';
             if (descEl) descEl.textContent = appMeta.description || t('footer.description') || 'Jellyfin to Trakt sync dashboard for multi-user setups.';
             if (versionEl) versionEl.textContent = `${versionLabel || 'Version'} ${appMeta.version || '—'}`;
@@ -343,14 +349,15 @@
         }
 
         async function loadLang(lang) {
-            currentLang = lang;
+            currentLang = normalizeLang(lang);
             try {
-                const r = await fetch(`/static/locales/${lang}.json`);
+                const r = await fetch(`/static/locales/${currentLang}.json`, { cache: 'no-cache' });
+                if (!r.ok) throw new Error(`locale:${currentLang}`);
                 translations = await r.json();
             } catch (e) {
                 translations = {};
             }
-            localStorage.setItem('lang', lang);
+            localStorage.setItem('lang', currentLang);
             applyStaticText();
         }
 
@@ -360,8 +367,10 @@
             document.getElementById('brandSubtitle').textContent = t('subtitle');
             document.getElementById('btnRefresh').textContent = t('button.refresh');
             document.getElementById('btnSync').textContent = t('button.sync');
-            document.getElementById('btnJellyfinModal').textContent = t('button.jellyfinModalCount', { noun: userNoun(2) });
-            document.getElementById('btnTraktModal').textContent = t('button.traktModalCount', { noun: userNoun(2) });
+            const jellyfinLabel = t('button.jellyfinModalCount', { noun: userNoun(2) });
+            const traktLabel = t('button.traktModalCount', { noun: userNoun(2) });
+            document.getElementById('btnJellyfinModal').textContent = jellyfinLabel === 'button.jellyfinModalCount' ? '👤 Jellyfin users' : jellyfinLabel;
+            document.getElementById('btnTraktModal').textContent = traktLabel === 'button.traktModalCount' ? '👤 Trakt users' : traktLabel;
             document.getElementById('jellyfinTitle').textContent = t('panel.jellyfinTitle');
             document.getElementById('jellyfinHelper').textContent = t('panel.jellyfinHelper');
             document.getElementById('traktTitle').textContent = t('panel.traktTitle');
@@ -1018,11 +1027,15 @@
                 document.getElementById('summary').textContent = `${t('label.libraryCounts', { movies, shows })} · ${t('header.summaryIcon')} ${t('summary.updated', { date })}`;
                 const selectedUsers = s.selectedUsers ?? s.users ?? 0;
                 const totalUsers = s.totalUsers ?? s.users ?? 0;
-                document.getElementById('btnJellyfinModal').textContent = `${t('button.jellyfinModalCount', { noun: userNoun(totalUsers) })} · ${selectedUsers}/${totalUsers}`;
+                const jellyfinLabel = t('button.jellyfinModalCount', { noun: userNoun(totalUsers) });
+                const jellyfinText = jellyfinLabel === 'button.jellyfinModalCount' ? '👤 Jellyfin users' : jellyfinLabel;
+                document.getElementById('btnJellyfinModal').textContent = `${jellyfinText} · ${selectedUsers}/${totalUsers}`;
                 const traktAccounts = s.traktAccounts ?? [];
                 const traktTotal = traktAccounts.length || (s.traktTotal ?? 0) || 0;
                 const traktEnabled = traktAccounts.filter(a => a && a.enabled).length;
-                document.getElementById('btnTraktModal').textContent = `${t('button.traktModalCount', { noun: userNoun(traktTotal) })} · ${traktEnabled}/${traktTotal} · ${trakt}`;
+                const traktLabel = t('button.traktModalCount', { noun: userNoun(traktTotal) });
+                const traktText = traktLabel === 'button.traktModalCount' ? '👤 Trakt users' : traktLabel;
+                document.getElementById('btnTraktModal').textContent = `${traktText} · ${traktEnabled}/${traktTotal} · ${trakt}`;
                 setBackendStatus('', false);
             } catch (e) {
                 setBackendStatus('⚠️ Jellyfin non raggiungibile (summary).', true);
@@ -1121,7 +1134,7 @@
         document.getElementById('filterUnassigned').addEventListener('click', () => { contentFilter = 'unassigned'; renderContentList(); });
 
         (async () => {
-            const storedLang = localStorage.getItem('lang') || 'en';
+            const storedLang = normalizeLang(localStorage.getItem('lang') || 'en');
             initTheme();
             try {
                 await loadAppMeta();
