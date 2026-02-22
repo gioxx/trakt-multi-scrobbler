@@ -26,12 +26,23 @@ Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account
 - Jellyfin con API key.
 - App Trakt con `client_id` e `client_secret` (https://trakt.tv/oauth/applications).
 - Python 3.11+ oppure Docker.
+- Node.js 18+ (opzionale, solo per rigenerare gli asset CSS della UI).
 
 ## Configurazione rapida
 1) **Clona il repo**
    ```bash
    git clone https://github.com/gioxx/trakt-multi-scrobbler.git
    cd trakt-multi-scrobbler
+   ```
+
+Aggiornamento opzionale dello stylesheet UI (Tailwind, build locale):
+   ```bash
+   npm install
+   npm run build:css
+   ```
+   Per sviluppo continuo:
+   ```bash
+   npm run watch:css
    ```
 
 2) **Variabili d’ambiente minime**

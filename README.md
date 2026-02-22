@@ -26,12 +26,23 @@ Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user 
 - Jellyfin with API key.
 - Trakt app with `client_id` and `client_secret` (https://trakt.tv/oauth/applications).
 - Python 3.11+ or Docker.
+- Node.js 18+ (optional, only to rebuild UI CSS assets).
 
 ## Quick setup
 1) **Clone**
    ```bash
    git clone https://github.com/gioxx/trakt-multi-scrobbler.git
    cd trakt-multi-scrobbler
+   ```
+
+Optional UI stylesheet refresh (Tailwind, local build):
+   ```bash
+   npm install
+   npm run build:css
+   ```
+   For live editing:
+   ```bash
+   npm run watch:css
    ```
 
 2) **Minimum environment vars**
