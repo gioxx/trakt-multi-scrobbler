@@ -11,6 +11,10 @@
 </head>
 
 <body>
+    <div id="bootLoading" style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(120deg, rgba(9,13,23,.9), rgba(14,19,32,.9)); color:#e8eefc; z-index:9999; font-size:18px; gap:10px;">
+        <span>⏳</span>
+        <span id="bootLoadingText">Loading data…</span>
+    </div>
     <header>
         <div class="brand" style="display:flex; align-items:center; gap:8px;">
             <a href="/" style="display:flex; align-items:center; gap:8px; color:inherit; text-decoration:none;">
@@ -112,6 +116,8 @@
         let currentTheme = 'dark';
         let typeFilter = 'all';
         let alphaFilter = '';
+        const bootLoading = document.getElementById('bootLoading');
+        const bootLoadingText = document.getElementById('bootLoadingText');
         let appMeta = {
             name: 'Trakt Multi-Scrobbler',
             version: '0.4.0',
@@ -226,6 +232,7 @@
             } catch (e) {
                 translations = {};
             }
+            if (bootLoadingText) bootLoadingText.textContent = t('loading') || 'Loading data…';
             document.getElementById('langSelect').value = lang;
             renderAccount();
         }
@@ -514,11 +521,15 @@
         (async () => {
             const storedLang = localStorage.getItem('lang') || 'en';
             initTheme();
-            await loadAppMeta();
-            await loadLang(storedLang);
-            renderAlphaBar();
-            await loadAccount();
-            renderBlocked();
+            try {
+                await loadAppMeta();
+                await loadLang(storedLang);
+                renderAlphaBar();
+                await loadAccount();
+                renderBlocked();
+            } finally {
+                if (bootLoading) bootLoading.style.display = 'none';
+            }
         })();
     </script>
 </body>
