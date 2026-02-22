@@ -97,6 +97,9 @@ thumb_cache_job_state: Dict[str, Any] = {
     "finishedAt": 0.0,
     "lastError": "",
     "lastAction": "",
+    "processed": 0,
+    "total": 0,
+    "percent": 0.0,
 }
 thumb_cache_job_task: asyncio.Task | None = None
 app = FastAPI(title="Trakt Multi-Scrobbler")
@@ -305,6 +308,16 @@ def _thumb_cache_status() -> Dict[str, Any]:
                         pass
         except Exception:
             pass
+    processed = int(thumb_cache_job_state.get("processed") or 0)
+    total = int(thumb_cache_job_state.get("total") or 0)
+    started_at = float(thumb_cache_job_state.get("startedAt") or 0.0)
+    eta_seconds = 0
+    if bool(thumb_cache_job_state.get("running")) and processed > 0 and total > processed and started_at > 0:
+        elapsed = max(0.001, time.time() - started_at)
+        rate = processed / elapsed
+        if rate > 0:
+            eta_seconds = max(0, int((total - processed) / rate))
+
     return {
         "files": files,
         "size": size,
@@ -312,10 +325,14 @@ def _thumb_cache_status() -> Dict[str, Any]:
         "ttlHours": THUMB_CACHE_TTL_HOURS,
         "jobRunning": bool(thumb_cache_job_state.get("running")),
         "jobPhase": str(thumb_cache_job_state.get("phase") or "idle"),
-        "jobStartedAt": float(thumb_cache_job_state.get("startedAt") or 0.0),
+        "jobStartedAt": started_at,
         "jobFinishedAt": float(thumb_cache_job_state.get("finishedAt") or 0.0),
         "jobLastError": str(thumb_cache_job_state.get("lastError") or ""),
         "jobLastAction": str(thumb_cache_job_state.get("lastAction") or ""),
+        "jobProcessed": processed,
+        "jobTotal": total,
+        "jobPercent": float(thumb_cache_job_state.get("percent") or 0.0),
+        "jobEtaSeconds": eta_seconds,
     }
 
 
@@ -424,6 +441,12 @@ async def refresh_cache(force: bool = False, recache_thumbs: bool = False, low_p
             continue
 
         items = items_resp.get("Items", []) if isinstance(items_resp, dict) else (items_resp or [])
+        if recache_thumbs and low_priority:
+            thumb_cache_job_state["total"] += sum(
+                1
+                for it in items
+                if (it.get("Type") or "").lower() in ("movie", "episode") and str(it.get("Id") or "").strip()
+            )
         for it in items:
             series_thumb_url = ""
             show_id = ""
@@ -506,6 +529,10 @@ async def refresh_cache(force: bool = False, recache_thumbs: bool = False, low_p
             }
             _record_history(juid, event)
             processed_items += 1
+            if recache_thumbs and low_priority:
+                thumb_cache_job_state["processed"] = processed_items
+                total_items = int(thumb_cache_job_state.get("total") or 0)
+                thumb_cache_job_state["percent"] = (processed_items * 100.0 / total_items) if total_items > 0 else 0.0
             if low_priority and recache_thumbs and (processed_items % THUMB_REBUILD_BATCH == 0):
                 await asyncio.sleep(THUMB_REBUILD_PAUSE_MS / 1000.0)
 
@@ -536,15 +563,24 @@ async def _run_thumb_cache_job(clear_first: bool = False) -> None:
     thumb_cache_job_state["finishedAt"] = 0.0
     thumb_cache_job_state["lastError"] = ""
     thumb_cache_job_state["lastAction"] = "clear_rebuild" if clear_first else "refresh"
+    thumb_cache_job_state["processed"] = 0
+    thumb_cache_job_state["total"] = 0
+    thumb_cache_job_state["percent"] = 0.0
     try:
         if clear_first:
             _clear_thumb_cache_files()
         await refresh_cache(force=True, recache_thumbs=True, low_priority=True)
+        total_items = int(thumb_cache_job_state.get("total") or 0)
+        done_items = int(thumb_cache_job_state.get("processed") or 0)
+        if total_items > 0:
+            thumb_cache_job_state["percent"] = min(100.0, (done_items * 100.0 / total_items))
     except Exception as exc:
         thumb_cache_job_state["lastError"] = str(exc)
     finally:
         thumb_cache_job_state["running"] = False
         thumb_cache_job_state["phase"] = "idle"
+        if not thumb_cache_job_state.get("lastError"):
+            thumb_cache_job_state["percent"] = 100.0
         thumb_cache_job_state["finishedAt"] = time.time()
 
 
