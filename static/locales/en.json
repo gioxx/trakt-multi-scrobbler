@@ -82,7 +82,7 @@
   "cache.title": "Poster cache",
   "cache.helper": "Cache info and manual refresh for thumbnails.",
   "cache.refresh": "Refresh",
-  "cache.clearRebuild": "Clear + rebuild",
+  "cache.clearRebuild": "Clear and rebuild",
   "cache.refreshing": "Refreshing…",
   "cache.clearing": "Clearing…",
   "cache.refreshed": "Cache refreshed.",
