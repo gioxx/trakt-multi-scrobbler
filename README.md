@@ -59,6 +59,8 @@ Project footer metadata (name/version/repo) is read from `static/app_meta.json`.
    export IMAGE_CACHE_SECONDS="86400"                # optional; cache-control for proxied images
    export JELLYFIN_TIMEOUT="5"                       # optional; per-request timeout (seconds) when calling Jellyfin
    export THUMB_FETCH_TIMEOUT="5"                    # optional; timeout when downloading posters
+   export THUMB_MAX_WIDTH="600"                      # optional; maximum poster width requested to Jellyfin (px)
+   export THUMB_MAX_HEIGHT="900"                     # optional; maximum poster height requested to Jellyfin (px)
    export INTERNAL_HTTP_BASE="http://127.0.0.1:8089" # optional; base URL used internally for poster caching when    PROXY_IMAGES=true
    export WATCH_THRESHOLD="0.95"                     # completion threshold (0-1)
    export REFRESH_MINUTES="30"                       # Jellyfin polling interval
