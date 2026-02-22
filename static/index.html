@@ -193,6 +193,7 @@
                         </div>
                         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                             <button id="btnCacheRefresh" class="pill">↻ <span id="cacheRefreshLabel">Refresh</span></button>
+                            <button id="btnCacheClear" class="pill">🧹 <span id="cacheClearLabel">Clear + rebuild</span></button>
                         </div>
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:13px;">
@@ -594,6 +595,8 @@
                 document.getElementById('cacheSize').textContent = t('cache.size', { mb: sizeMb });
                 const btn = document.getElementById('btnCacheRefresh');
                 const label = document.getElementById('cacheRefreshLabel');
+                const btnClear = document.getElementById('btnCacheClear');
+                const labelClear = document.getElementById('cacheClearLabel');
                 const progressEl = document.getElementById('cacheProgress');
                 const etaEl = document.getElementById('cacheEta');
                 const progressBar = document.getElementById('cacheProgressBar');
@@ -604,7 +607,9 @@
                     const percent = Math.max(0, Math.min(100, Number(data.jobPercent || 0)));
                     const etaSeconds = Math.max(0, Number(data.jobEtaSeconds || 0));
                     btn.disabled = running;
-                    label.textContent = running ? t('cache.refreshing') : t('cache.refresh');
+                    if (btnClear) btnClear.disabled = running;
+                    label.textContent = running && data.jobPhase === 'refreshing' ? t('cache.refreshing') : t('cache.refresh');
+                    if (labelClear) labelClear.textContent = running && data.jobPhase === 'clearing' ? t('cache.clearing') : t('cache.clearRebuild');
                     if (progressEl) {
                         if (running) {
                             if (total > 0) {
@@ -670,7 +675,6 @@
         }
 
         async function refreshCacheThumbs() {
-            const btn = document.getElementById('btnCacheRefresh');
             try {
                 const r = await fetch('/api/thumbs/refresh', { method: 'POST' });
                 const data = await r.json().catch(() => ({}));
@@ -679,6 +683,18 @@
                 await loadCacheStatus();
             } catch (e) {
                 showStatus(t('cache.refreshError'), 'error');
+            }
+        }
+
+        async function clearAndRebuildCacheThumbs() {
+            try {
+                const r = await fetch('/api/thumbs/clear', { method: 'POST' });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) throw new Error(data.error || 'clear_failed');
+                showStatus(data.started ? t('cache.clearing') : t('cache.clearing'), 'info');
+                await loadCacheStatus();
+            } catch (e) {
+                showStatus(t('cache.clearError'), 'error');
             }
         }
 
@@ -1161,6 +1177,7 @@
             document.getElementById('backupFile').click();
         });
         document.getElementById('btnCacheRefresh').addEventListener('click', refreshCacheThumbs);
+        document.getElementById('btnCacheClear').addEventListener('click', clearAndRebuildCacheThumbs);
         document.getElementById('backupFile').addEventListener('change', async (e) => {
             const file = e.target.files && e.target.files[0];
             if (file) {
@@ -1190,6 +1207,7 @@
             document.getElementById('cacheTitle').textContent = t('cache.title');
             document.getElementById('cacheHelper').textContent = t('cache.helper');
             document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
+            document.getElementById('cacheClearLabel').textContent = t('cache.clearRebuild');
             await loadCacheStatus();
         });
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
@@ -1223,6 +1241,7 @@
                 document.getElementById('cacheTitle').textContent = t('cache.title');
                 document.getElementById('cacheHelper').textContent = t('cache.helper');
                 document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
+                document.getElementById('cacheClearLabel').textContent = t('cache.clearRebuild');
             } catch (e) {
                 showStatus('Initial load failed, retry with Refresh.', 'error');
             } finally {
