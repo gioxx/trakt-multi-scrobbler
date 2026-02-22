@@ -11,8 +11,7 @@
   --pill-bg: rgba(12, 23, 40, 0.82);
   --pill-text: #dbe9ff;
   --poster-bg: #07101f;
-  --bg-icons-color: #8fb6e6;
-  --bg-icons-opacity: 0.11;
+  --bg-icons-opacity: 0.2;
 }
 
 [data-theme="light"] {
@@ -28,8 +27,7 @@
   --pill-bg: rgba(244, 248, 255, 0.96);
   --pill-text: #0f1c33;
   --poster-bg: #dfeafb;
-  --bg-icons-color: #4d6d93;
-  --bg-icons-opacity: 0.08;
+  --bg-icons-opacity: 0.14;
 }
 
 html,
@@ -60,19 +58,13 @@ body::before {
   pointer-events: none;
   z-index: 1;
   opacity: var(--bg-icons-opacity);
-  background-color: var(--bg-icons-color);
-  -webkit-mask-image: url("/static/scrobbler_icon.webp");
-  mask-image: url("/static/scrobbler_icon.webp");
-  -webkit-mask-repeat: repeat;
-  mask-repeat: repeat;
-  -webkit-mask-size: 164px 164px;
-  mask-size: 164px 164px;
-  -webkit-mask-position: 0 0;
-  mask-position: 0 0;
-  background-image: url("/static/scrobbler_icon.webp");
+  background-image: url("/static/scrobbler_icon.png");
   background-repeat: repeat;
-  background-size: 164px 164px;
+  background-size: 176px 176px;
+  background-position: 0 0;
   background-attachment: fixed;
+  filter: grayscale(1) brightness(1.25);
+  mix-blend-mode: soft-light;
 }
 
 body > * {
