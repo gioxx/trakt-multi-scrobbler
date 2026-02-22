@@ -29,7 +29,7 @@
                 <option value="en">🌐 EN</option>
                 <option value="it">🌐 IT</option>
             </select>
-            <button id="btnTheme" class="pill" style="cursor:pointer;">⌗</button>
+            <button id="btnTheme" class="pill icon-btn" style="cursor:pointer;" aria-label="Toggle theme">🌙</button>
         </div>
     </header>
 
@@ -185,7 +185,7 @@
             localStorage.setItem('theme', theme);
             const btn = document.getElementById('btnTheme');
             if (btn) {
-                btn.textContent = theme === 'light' ? '◐' : '◑';
+                btn.textContent = theme === 'light' ? '☀️' : '🌙';
                 btn.setAttribute('aria-label', theme === 'light' ? t('theme.dark') : t('theme.light'));
             }
         }
