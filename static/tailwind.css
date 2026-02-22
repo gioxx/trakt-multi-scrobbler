@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Source+Sans+3:wght@400;600;700&display=swap');
 
 :root {
   color-scheme: dark;
@@ -39,7 +39,7 @@ body {
 
 body {
   margin: 0;
-  font-family: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -49,7 +49,7 @@ body {
     radial-gradient(700px 420px at 88% 0%, color-mix(in srgb, #14b8a6 18%, transparent), transparent 62%),
     linear-gradient(180deg, var(--bg-soft), var(--bg));
   background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-  background-size: 224px 224px, auto, auto, auto;
+  background-size: 176px 176px, auto, auto, auto;
   background-attachment: fixed, fixed, fixed, fixed;
 }
 
@@ -219,7 +219,7 @@ button.active,
 }
 
 .title {
-  font-size: 0.875rem;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.25;
   color: var(--text);
@@ -227,12 +227,12 @@ button.active,
 
 .sub {
   min-height: 18px;
-  font-size: 0.75rem;
+  font-size: 13px;
   color: var(--muted);
 }
 
 .muted {
-  font-size: 0.75rem;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -281,13 +281,25 @@ button.active,
 }
 
 .footer-title {
-  font-size: 0.875rem;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .footer-meta {
-  font-size: 0.75rem;
+  font-size: 13px;
   color: var(--muted);
+}
+
+.footer-panel {
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+}
+
+.footer-grid {
+  display: grid;
+  align-items: center;
+  gap: 0.75rem;
+  grid-template-columns: 1fr auto;
 }
 
 @keyframes panel-enter {
@@ -305,5 +317,9 @@ button.active,
 @media (max-width: 900px) {
   .alpha-row {
     grid-template-columns: repeat(9, minmax(26px, 1fr));
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -36,9 +36,6 @@
                 <option value="it">🌐 IT</option>
             </select>
             <button id="btnTheme" class="pill" style="cursor:pointer;">⌗</button>
-            <a id="btnGithub" class="pill" style="cursor:pointer; text-decoration:none; display:flex; align-items:center; gap:6px;" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener">
-                <img src="/static/github.svg" alt="GitHub" width="16" height="16" aria-hidden="true" style="display:block;" />
-            </a>
         </div>
     </header>
 
@@ -100,15 +97,17 @@
             <div id="alphaBar" class="alpha-row"></div>
             <div id="grid" class="grid"></div>
         </section>
-        <section class="panel">
-            <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+        <section class="panel footer-panel">
+            <div class="footer-grid">
                 <div>
                     <div class="footer-title" id="footerProjectName">Trakt Multi-Scrobbler</div>
                     <div class="footer-meta" id="footerProjectDesc">Jellyfin to Trakt sync dashboard.</div>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
                     <div class="pill" id="footerVersion">Version —</div>
-                    <a class="pill" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener">GitHub repo</a>
+                    <a class="pill" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener" aria-label="GitHub repository" title="GitHub repository">
+                        <img src="/static/github.svg" alt="GitHub" width="16" height="16" style="display:block;" />
+                    </a>
                 </div>
             </div>
         </section>
