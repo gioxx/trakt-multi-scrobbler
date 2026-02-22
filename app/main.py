@@ -586,7 +586,6 @@ async def api_trakt_account_items(username: str):
 
     rules = trakt_service.enabled_items(username) if trakt_service else {}
     enabled_keys = [k for k, v in rules.items() if v]
-    items: List[Dict[str, Any]] = []
     missing: List[Dict[str, Any]] = []
     blocked: List[Dict[str, Any]] = []
     seen_canonical: Dict[str, Dict[str, Any]] = {}
@@ -605,7 +604,6 @@ async def api_trakt_account_items(username: str):
                 canonical = key
             if canonical in seen_canonical:
                 # Prefer the groupKey rule for shows if duplicated.
-                existing = seen_canonical[canonical]
                 if entry.get("type") == "show" and entry.get("groupKey") == key:
                     seen_canonical[canonical] = entry
                 continue
@@ -613,18 +611,45 @@ async def api_trakt_account_items(username: str):
         else:
             missing.append({"ruleKey": key})
 
+    # Add implicit defaults (e.g. movies with no explicit rule).
+    for _, meta in cache.catalog.items():
+        pk = str(meta.get("providerKey") or "").strip()
+        gk = str(meta.get("groupKey") or "").strip()
+        typ = str(meta.get("type") or "").strip()
+        if not trakt_service.item_allowed(username, pk, gk, typ):
+            continue
+        key = _rule_key_for_entry(meta)
+        if not key:
+            continue
+        entry = dict(meta)
+        entry["ruleKey"] = key
+        canonical = ""
+        if entry.get("type") == "show" and entry.get("groupKey"):
+            canonical = str(entry.get("groupKey"))
+        elif entry.get("providerKey"):
+            canonical = str(entry.get("providerKey"))
+        else:
+            canonical = key
+        if canonical in seen_canonical:
+            continue
+        seen_canonical[canonical] = entry
+
     items_sorted = sorted(seen_canonical.values(), key=lambda x: (x.get("type") or "", x.get("title") or ""))
     movies = [i for i in items_sorted if i.get("type") == "movie"]
     shows = [i for i in items_sorted if i.get("type") == "show"]
 
-    # Build blocked list: catalog items not allowed for this account (rule false or no rule).
-    enabled_set = {k for k in enabled_keys}
+    # Build blocked list: catalog items not allowed for this account.
     seen_blocked: set[str] = set()
     for _, meta in cache.catalog.items():
         key = _rule_key_for_entry(meta)
-        if not key or key in enabled_set:
+        if not key:
             continue
-        allowed = bool(rules.get(key)) if key in rules else False
+        allowed = trakt_service.item_allowed(
+            username,
+            str(meta.get("providerKey") or "").strip(),
+            str(meta.get("groupKey") or "").strip(),
+            str(meta.get("type") or "").strip(),
+        )
         if allowed:
             continue
         if key in seen_blocked:
@@ -796,7 +821,7 @@ async def api_trakt_items():
             {
                 "username": u,
                 # ruleEnabled = user choice; accountEnabled = current account toggle
-                "ruleEnabled": trakt_service.item_allowed(u, pk, gk) if trakt_service else False,
+                "ruleEnabled": trakt_service.item_allowed(u, pk, gk, str(it.get("type") or "")) if trakt_service else False,
                 "enabled": acc.enabled,
                 "accountEnabled": acc.enabled,
             }

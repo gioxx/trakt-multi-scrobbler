@@ -75,7 +75,8 @@ class TraktService:
         self.db_path = db_path or self._derive_db_path(state_path)
         self.accounts: Dict[str, TraktAccount] = {}
         self.last_synced: Dict[str, float] = {}
-        # account_items: username -> key -> enabled(bool). Missing means allowed by default.
+        # account_items: username -> key -> enabled(bool).
+        # Missing rules are treated as allowed only for movies.
         self.account_items: Dict[str, Dict[str, bool]] = {}
         self._json_last_synced: Dict[str, float] = {}
         self._json_account_items: Dict[str, Dict[str, bool]] = {}
@@ -211,7 +212,7 @@ class TraktService:
         self._save_state()
         return True
 
-    def item_allowed(self, username: str, provider_key: str, group_key: str = "") -> bool:
+    def item_allowed(self, username: str, provider_key: str, group_key: str = "", content_type: str = "") -> bool:
         if not provider_key and not group_key:
             return False
         rules = self.account_items.get(username) or {}
@@ -219,7 +220,10 @@ class TraktService:
             return bool(rules[provider_key])
         if group_key and group_key in rules:
             return bool(rules[group_key])
-        return False  # default: new content not selected
+        # Default behavior for new content:
+        # - movies are auto-assigned to all configured accounts
+        # - shows/episodes remain unassigned until explicitly enabled
+        return str(content_type or "").lower().strip() == "movie"
 
     def prune_rules(self, valid_keys: set[str]) -> None:
         if not valid_keys:
@@ -343,7 +347,12 @@ class TraktService:
                             }
                         )
                     continue
-                if not self.item_allowed(username, str(ev.get("providerKey") or ""), str(ev.get("groupKey") or "")):
+                if not self.item_allowed(
+                    username,
+                    str(ev.get("providerKey") or ""),
+                    str(ev.get("groupKey") or ""),
+                    str(ev.get("type") or ""),
+                ):
                     skipped_disallowed += 1
                     if len(sample_disallowed) < 5:
                         sample_disallowed.append(
