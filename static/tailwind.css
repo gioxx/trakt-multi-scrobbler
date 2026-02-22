@@ -11,7 +11,8 @@
   --pill-bg: rgba(12, 23, 40, 0.82);
   --pill-text: #dbe9ff;
   --poster-bg: #07101f;
-  --bg-icons: url("/static/bg-cinema-pattern-dark.svg");
+  --bg-icons: url("/static/bg-collage-dark.svg");
+  --bg-icons-opacity: 0.4;
 }
 
 [data-theme="light"] {
@@ -27,7 +28,8 @@
   --pill-bg: rgba(244, 248, 255, 0.96);
   --pill-text: #0f1c33;
   --poster-bg: #dfeafb;
-  --bg-icons: url("/static/bg-cinema-pattern-light.svg");
+  --bg-icons: url("/static/bg-collage-light.svg");
+  --bg-icons-opacity: 0.3;
 }
 
 html,
@@ -42,13 +44,29 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-image:
-    var(--bg-icons),
     radial-gradient(900px 500px at 12% -15%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 55%),
     radial-gradient(700px 420px at 88% 0%, color-mix(in srgb, #14b8a6 18%, transparent), transparent 62%),
     linear-gradient(180deg, var(--bg-soft), var(--bg));
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-  background-size: 176px 176px, auto, auto, auto;
-  background-attachment: fixed, fixed, fixed, fixed;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--bg-icons-opacity);
+  background-image: var(--bg-icons);
+  background-repeat: repeat;
+  background-size: 320px 320px;
+  background-attachment: fixed;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 button {
@@ -294,17 +312,23 @@ button.active,
 }
 
 .footer-grid {
-  display: grid;
+  display: flex;
   align-items: center;
   gap: 0.75rem;
-  grid-template-columns: 1fr auto;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.footer-text {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .footer-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  justify-self: end;
+  margin-left: auto;
   flex-wrap: nowrap;
   white-space: nowrap;
 }
@@ -324,5 +348,9 @@ button.active,
 @media (max-width: 900px) {
   .alpha-row {
     grid-template-columns: repeat(9, minmax(26px, 1fr));
+  }
+
+  .footer-grid {
+    align-items: flex-start;
   }
 }
