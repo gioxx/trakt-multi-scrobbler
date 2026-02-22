@@ -48,6 +48,16 @@ except ValueError:
     THUMB_MAX_HEIGHT = 900
 THUMB_MAX_WIDTH = max(0, THUMB_MAX_WIDTH)
 THUMB_MAX_HEIGHT = max(0, THUMB_MAX_HEIGHT)
+try:
+    THUMB_REBUILD_BATCH = int(os.environ.get("THUMB_REBUILD_BATCH", "5"))
+except ValueError:
+    THUMB_REBUILD_BATCH = 5
+try:
+    THUMB_REBUILD_PAUSE_MS = float(os.environ.get("THUMB_REBUILD_PAUSE_MS", "40"))
+except ValueError:
+    THUMB_REBUILD_PAUSE_MS = 40.0
+THUMB_REBUILD_BATCH = max(1, THUMB_REBUILD_BATCH)
+THUMB_REBUILD_PAUSE_MS = max(0.0, THUMB_REBUILD_PAUSE_MS)
 
 
 def _default_trakt_db_path() -> str:
@@ -80,6 +90,15 @@ trakt_service = TraktService(TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET, TRAKT_STATE_P
 
 cache = Cache()
 thumb_cache_last_refresh = 0.0
+thumb_cache_job_state: Dict[str, Any] = {
+    "running": False,
+    "phase": "idle",
+    "startedAt": 0.0,
+    "finishedAt": 0.0,
+    "lastError": "",
+    "lastAction": "",
+}
+thumb_cache_job_task: asyncio.Task | None = None
 app = FastAPI(title="Trakt Multi-Scrobbler")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -281,7 +300,30 @@ def _thumb_cache_status() -> Dict[str, Any]:
         "size": size,
         "lastRefresh": thumb_cache_last_refresh,
         "ttlHours": THUMB_CACHE_TTL_HOURS,
+        "jobRunning": bool(thumb_cache_job_state.get("running")),
+        "jobPhase": str(thumb_cache_job_state.get("phase") or "idle"),
+        "jobStartedAt": float(thumb_cache_job_state.get("startedAt") or 0.0),
+        "jobFinishedAt": float(thumb_cache_job_state.get("finishedAt") or 0.0),
+        "jobLastError": str(thumb_cache_job_state.get("lastError") or ""),
+        "jobLastAction": str(thumb_cache_job_state.get("lastAction") or ""),
     }
+
+
+def _clear_thumb_cache_files() -> int:
+    removed = 0
+    if not os.path.isdir(THUMB_CACHE_DIR):
+        return 0
+    try:
+        for entry in os.scandir(THUMB_CACHE_DIR):
+            if entry.is_file():
+                try:
+                    os.remove(entry.path)
+                    removed += 1
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return removed
 
 
 def _ts_from_iso(val: str) -> float:
@@ -344,7 +386,7 @@ def _recent_completed_events(limit: int = 5) -> List[Dict[str, Any]]:
     return items[:limit]
 
 
-async def refresh_cache(force: bool = False, recache_thumbs: bool = False) -> None:
+async def refresh_cache(force: bool = False, recache_thumbs: bool = False, low_priority: bool = False) -> None:
     """Pull users + history from Jellyfin only."""
     global thumb_cache_last_refresh
     if not force and not cache.is_stale(REFRESH_MINUTES):
@@ -365,6 +407,7 @@ async def refresh_cache(force: bool = False, recache_thumbs: bool = False) -> No
         logger.warning("Jellyfin: failed to fetch users", exc_info=True)
         return
 
+    processed_items = 0
     for juid, _ in cache.users.items():
         try:
             items_resp = await jellyfin.get_user_items(juid)
@@ -454,6 +497,9 @@ async def refresh_cache(force: bool = False, recache_thumbs: bool = False) -> No
                 "groupKey": group_key,
             }
             _record_history(juid, event)
+            processed_items += 1
+            if low_priority and recache_thumbs and (processed_items % THUMB_REBUILD_BATCH == 0):
+                await asyncio.sleep(THUMB_REBUILD_PAUSE_MS / 1000.0)
 
     cache.last_refresh_ts = time.time()
     thumb_cache_last_refresh = cache.last_refresh_ts
@@ -473,6 +519,33 @@ async def refresh_cache(force: bool = False, recache_thumbs: bool = False) -> No
             if v.get("groupKey"):
                 valid_keys.add(v["groupKey"])
         trakt_service.prune_rules(valid_keys)
+
+
+async def _run_thumb_cache_job(clear_first: bool = False) -> None:
+    thumb_cache_job_state["running"] = True
+    thumb_cache_job_state["phase"] = "clearing" if clear_first else "refreshing"
+    thumb_cache_job_state["startedAt"] = time.time()
+    thumb_cache_job_state["finishedAt"] = 0.0
+    thumb_cache_job_state["lastError"] = ""
+    thumb_cache_job_state["lastAction"] = "clear_rebuild" if clear_first else "refresh"
+    try:
+        if clear_first:
+            _clear_thumb_cache_files()
+        await refresh_cache(force=True, recache_thumbs=True, low_priority=True)
+    except Exception as exc:
+        thumb_cache_job_state["lastError"] = str(exc)
+    finally:
+        thumb_cache_job_state["running"] = False
+        thumb_cache_job_state["phase"] = "idle"
+        thumb_cache_job_state["finishedAt"] = time.time()
+
+
+def _start_thumb_cache_job(clear_first: bool = False) -> bool:
+    global thumb_cache_job_task
+    if thumb_cache_job_task and not thumb_cache_job_task.done():
+        return False
+    thumb_cache_job_task = asyncio.create_task(_run_thumb_cache_job(clear_first=clear_first))
+    return True
 
 
 async def sync_trakt(usernames: List[str] | None = None) -> Dict[str, Any]:
@@ -807,8 +880,14 @@ async def api_thumb_status():
 
 @app.post("/api/thumbs/refresh")
 async def api_thumb_refresh():
-    await refresh_cache(force=True, recache_thumbs=True)
-    return JSONResponse({"ok": True, **_thumb_cache_status()})
+    started = _start_thumb_cache_job(clear_first=False)
+    return JSONResponse({"ok": True, "started": started, **_thumb_cache_status()})
+
+
+@app.post("/api/thumbs/clear")
+async def api_thumb_clear():
+    started = _start_thumb_cache_job(clear_first=True)
+    return JSONResponse({"ok": True, "started": started, **_thumb_cache_status()})
 
 
 @app.post("/api/trakt/device/start")

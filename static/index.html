@@ -226,6 +226,7 @@
         let recentItems = [];
         let accountFilter = '';
         let toastTimer = null;
+        let cacheStatusTimer = null;
         let currentTheme = 'dark';
         let appMeta = {
             name: 'Trakt Multi-Scrobbler',
@@ -586,6 +587,22 @@
                 document.getElementById('cacheFiles').textContent = t('cache.files', { count: data.files || 0 });
                 const sizeMb = data.size ? (data.size / (1024 * 1024)).toFixed(1) : '0';
                 document.getElementById('cacheSize').textContent = t('cache.size', { mb: sizeMb });
+                const btn = document.getElementById('btnCacheRefresh');
+                const label = document.getElementById('cacheRefreshLabel');
+                if (btn && label) {
+                    const running = !!data.jobRunning;
+                    btn.disabled = running;
+                    label.textContent = running ? t('cache.refreshing') : t('cache.refresh');
+                    if (cacheStatusTimer) {
+                        clearTimeout(cacheStatusTimer);
+                        cacheStatusTimer = null;
+                    }
+                    if (running) {
+                        cacheStatusTimer = setTimeout(() => {
+                            loadCacheStatus();
+                        }, 1500);
+                    }
+                }
             } catch (e) {
                 document.getElementById('cacheLast').textContent = t('cache.statusError');
                 document.getElementById('cacheFiles').textContent = '—';
@@ -595,20 +612,14 @@
 
         async function refreshCacheThumbs() {
             const btn = document.getElementById('btnCacheRefresh');
-            btn.disabled = true;
-            const orig = btn.textContent;
-            btn.textContent = t('cache.refreshing');
             try {
                 const r = await fetch('/api/thumbs/refresh', { method: 'POST' });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) throw new Error(data.error || 'refresh_failed');
-                showStatus(t('cache.refreshed'), 'success');
+                showStatus(data.started ? t('cache.refreshing') : t('cache.refreshing'), 'info');
                 await loadCacheStatus();
             } catch (e) {
                 showStatus(t('cache.refreshError'), 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = orig;
             }
         }
 
