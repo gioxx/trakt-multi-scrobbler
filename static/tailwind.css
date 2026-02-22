@@ -12,7 +12,7 @@
   --pill-text: #dbe9ff;
   --poster-bg: #07101f;
   --bg-icons: url("/static/bg-collage-dark.svg");
-  --bg-icons-opacity: 0.4;
+  --bg-icons-opacity: 0.58;
 }
 
 [data-theme="light"] {
@@ -29,7 +29,7 @@
   --pill-text: #0f1c33;
   --poster-bg: #dfeafb;
   --bg-icons: url("/static/bg-collage-light.svg");
-  --bg-icons-opacity: 0.3;
+  --bg-icons-opacity: 0.44;
 }
 
 html,
@@ -154,7 +154,7 @@ main {
   border: 1px solid var(--border);
   padding: 1rem;
   box-shadow: 0 18px 40px -28px rgba(2, 132, 199, 0.65);
-  background: linear-gradient(160deg, color-mix(in srgb, var(--panel) 97%, transparent), color-mix(in srgb, var(--panel-2) 96%, transparent));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--panel) 86%, transparent), color-mix(in srgb, var(--panel-2) 82%, transparent));
   animation: panel-enter 0.24s ease-out both;
 }
 
@@ -202,7 +202,7 @@ button.active,
   border: 1px solid var(--border);
   padding: 0.75rem;
   transition: all 150ms;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 98%, transparent), color-mix(in srgb, var(--panel-2) 97%, transparent));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 94%, transparent), color-mix(in srgb, var(--panel-2) 90%, transparent));
 }
 
 .card:hover {
@@ -332,6 +332,20 @@ button.active,
   justify-self: end;
   flex-wrap: nowrap;
   white-space: nowrap;
+}
+
+.footer-actions > .pill {
+  box-sizing: border-box;
+  height: 32px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.footer-actions > a.pill {
+  min-width: 32px;
+  justify-content: center;
 }
 
 @keyframes panel-enter {

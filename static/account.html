@@ -88,12 +88,12 @@
             <div id="missingList" class="grid"></div>
         </section>
         <section class="panel footer-panel">
-            <div class="footer-grid">
+            <div class="footer-grid" style="display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px;">
                 <div class="footer-text">
                     <div class="footer-title" id="footerProjectName">Trakt Multi-Scrobbler</div>
                     <div class="footer-meta" id="footerProjectDesc">Jellyfin to Trakt sync dashboard.</div>
                 </div>
-                <div class="footer-actions">
+                <div class="footer-actions" style="display:flex; align-items:center; gap:8px; justify-content:flex-end; white-space:nowrap;">
                     <div class="pill" id="footerVersion">Version —</div>
                     <a class="pill" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener" aria-label="GitHub repository" title="GitHub repository">
                         <img src="/static/github.svg" alt="GitHub" width="16" height="16" style="display:block;" />

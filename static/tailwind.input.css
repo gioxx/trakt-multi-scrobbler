@@ -17,7 +17,7 @@
     --pill-text: #dbe9ff;
     --poster-bg: #07101f;
     --bg-icons: url("/static/bg-collage-dark.svg");
-    --bg-icons-opacity: 0.4;
+    --bg-icons-opacity: 0.58;
   }
 
   [data-theme="light"] {
@@ -34,7 +34,7 @@
     --pill-text: #0f1c33;
     --poster-bg: #dfeafb;
     --bg-icons: url("/static/bg-collage-light.svg");
-    --bg-icons-opacity: 0.3;
+    --bg-icons-opacity: 0.44;
   }
 
   html,
@@ -129,7 +129,7 @@
   .panel {
     @apply mb-5 rounded-2xl border p-4 shadow-[0_18px_40px_-28px_rgba(2,132,199,.65)];
     border-color: var(--border);
-    background: linear-gradient(160deg, color-mix(in srgb, var(--panel) 97%, transparent), color-mix(in srgb, var(--panel-2) 96%, transparent));
+    background: linear-gradient(160deg, color-mix(in srgb, var(--panel) 86%, transparent), color-mix(in srgb, var(--panel-2) 82%, transparent));
     animation: panel-enter 0.24s ease-out both;
   }
 
@@ -160,7 +160,7 @@
   .card {
     @apply flex gap-3 overflow-hidden rounded-2xl border p-3 transition-all duration-150 hover:-translate-y-px hover:shadow-glow;
     border-color: var(--border);
-    background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 98%, transparent), color-mix(in srgb, var(--panel-2) 97%, transparent));
+    background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 94%, transparent), color-mix(in srgb, var(--panel-2) 90%, transparent));
   }
 
   .poster {
@@ -237,6 +237,20 @@
     justify-self: end;
     flex-wrap: nowrap;
     white-space: nowrap;
+  }
+
+  .footer-actions > .pill {
+    box-sizing: border-box;
+    height: 32px;
+    padding-top: 0;
+    padding-bottom: 0;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .footer-actions > a.pill {
+    min-width: 32px;
+    justify-content: center;
   }
 }
 
