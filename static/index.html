@@ -299,8 +299,8 @@
             const repoEl = document.getElementById('footerRepoLink');
             const versionLabel = t('footer.versionLabel');
             const repoLabel = t('footer.repoLabel');
-            if (nameEl) nameEl.textContent = appMeta.name || 'Trakt Multi-Scrobbler';
-            if (descEl) descEl.textContent = t('footer.description') || appMeta.description || 'Jellyfin to Trakt sync dashboard.';
+            if (nameEl) nameEl.textContent = appMeta.name || t('title') || 'Trakt Multi-Scrobbler';
+            if (descEl) descEl.textContent = appMeta.description || t('footer.description') || 'Jellyfin to Trakt sync dashboard for multi-user setups.';
             if (versionEl) versionEl.textContent = `${versionLabel || 'Version'} ${appMeta.version || '—'}`;
             if (repoEl) {
                 repoEl.href = appMeta.repository || 'https://github.com/gioxx/trakt-multi-scrobbler';
