@@ -661,6 +661,7 @@ async def _run_thumb_cache_job(clear_first: bool = False) -> None:
         if clear_first:
             _clear_thumb_cache_files()
             # Heavy job: rebuild cache from scratch.
+            MISSING_IMAGE_CACHE.clear()
             await refresh_cache(force=True, recache_thumbs=True, low_priority=True)
         else:
             # Lightweight refresh: update data and refresh thumbnails only when missing/expired.
