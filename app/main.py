@@ -415,32 +415,83 @@ def _record_history(user_id: str, event: Dict[str, Any]) -> None:
     cache.user_history.setdefault(user_id, []).append(event)
 
 
+def _dedupe_completed_events(events: List[Dict[str, Any]], include_user: bool = False) -> List[Dict[str, Any]]:
+    """
+    Remove exact duplicate completed events.
+
+    Dedupe key:
+    - userId/user_id (optional, when include_user=True)
+    - ratingKey
+    - date
+
+    This keeps distinct watches of the same item at different timestamps.
+    """
+    seen: Set[tuple[str, str, float]] = set()
+    deduped: List[Dict[str, Any]] = []
+
+    for ev in events:
+        if not ev.get("completed") or not ev.get("date"):
+            continue
+
+        rating_key = str(ev.get("ratingKey") or "").strip()
+        event_date = float(ev.get("date") or 0.0)
+
+        if include_user:
+            user_key = str(ev.get("userId") or ev.get("user_id") or "").strip()
+        else:
+            user_key = ""
+
+        dedupe_key = (user_key, rating_key, event_date)
+
+        if rating_key and dedupe_key in seen:
+            continue
+
+        if rating_key:
+            seen.add(dedupe_key)
+
+        deduped.append(ev)
+
+    return deduped
+
 def _gather_completed_events() -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
+
     for user_id, evs in cache.user_history.items():
         if not _is_user_selected(user_id):
             continue
+
         for ev in evs:
             if not ev.get("completed") or not ev.get("date"):
                 continue
-            events.append(ev)
+
+            out = dict(ev)
+            out["userId"] = user_id
+            events.append(out)
+
+    events = _dedupe_completed_events(events, include_user=True)
     events.sort(key=lambda e: float(e.get("date") or 0.0))
     return events
 
 
 def _recent_completed_events(limit: int = 5) -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
+
     for user_id, evs in cache.user_history.items():
         if not _is_user_selected(user_id):
             continue
+
         user_name = cache.users.get(user_id, "")
+
         for ev in evs:
             if not ev.get("completed") or not ev.get("date"):
                 continue
+
             out = dict(ev)
             out["userId"] = user_id
             out["userName"] = user_name
             items.append(out)
+
+    items = _dedupe_completed_events(items, include_user=True)
     items.sort(key=lambda e: float(e.get("date") or 0.0), reverse=True)
     return items[:limit]
 
@@ -1204,7 +1255,7 @@ async def api_toggle_user(payload: Dict[str, Any] = Body(...)):
 async def api_recent():
     """Return recent completed items across selected Jellyfin users."""
     await refresh_cache(force=False)
-    items = _recent_completed_events(limit=6)
+    items = _recent_completed_events(limit=8)
     return JSONResponse({"items": items})
 
 
