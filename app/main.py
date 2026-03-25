@@ -1,25 +1,25 @@
 from __future__ import annotations
 
+from app.jellyfin_client import JellyfinClient
+from app.store import Cache
+from app.trakt_client import TraktService
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
+
+from fastapi import FastAPI, Body, UploadFile, File, Query
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
+
 import asyncio
+import hashlib
+import httpx
+import io
 import json
 import logging
 import os
 import time
-import io
 import zipfile
-import hashlib
-from datetime import datetime
-from typing import Any, Dict, List, Set
-
-from fastapi import FastAPI, Body, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
-import httpx
-
-from app.jellyfin_client import JellyfinClient
-from app.store import Cache
-from app.trakt_client import TraktService
-
 
 JELLYFIN_URL = os.environ.get("JELLYFIN_URL", "").strip()
 JELLYFIN_APIKEY = os.environ.get("JELLYFIN_APIKEY", "").strip()
@@ -59,6 +59,12 @@ except ValueError:
 THUMB_REBUILD_BATCH = max(1, THUMB_REBUILD_BATCH)
 THUMB_REBUILD_PAUSE_MS = max(0.0, THUMB_REBUILD_PAUSE_MS)
 
+# Negative cache for missing images
+MISSING_IMAGE_CACHE: Dict[str, float] = {}
+MISSING_IMAGE_TTL_SECONDS = 600  # 10 minutes
+
+# Local placeholder returned when Jellyfin has no poster
+PLACEHOLDER_IMAGE = Path("static/poster-missing.jpg")
 
 def _default_trakt_db_path() -> str:
     env_path = os.environ.get("TRAKT_DB_PATH", "").strip()
@@ -409,32 +415,83 @@ def _record_history(user_id: str, event: Dict[str, Any]) -> None:
     cache.user_history.setdefault(user_id, []).append(event)
 
 
+def _dedupe_completed_events(events: List[Dict[str, Any]], include_user: bool = False) -> List[Dict[str, Any]]:
+    """
+    Remove exact duplicate completed events.
+
+    Dedupe key:
+    - userId/user_id (optional, when include_user=True)
+    - ratingKey
+    - date
+
+    This keeps distinct watches of the same item at different timestamps.
+    """
+    seen: Set[tuple[str, str, float]] = set()
+    deduped: List[Dict[str, Any]] = []
+
+    for ev in events:
+        if not ev.get("completed") or not ev.get("date"):
+            continue
+
+        rating_key = str(ev.get("ratingKey") or "").strip()
+        event_date = float(ev.get("date") or 0.0)
+
+        if include_user:
+            user_key = str(ev.get("userId") or ev.get("user_id") or "").strip()
+        else:
+            user_key = ""
+
+        dedupe_key = (user_key, rating_key, event_date)
+
+        if rating_key and dedupe_key in seen:
+            continue
+
+        if rating_key:
+            seen.add(dedupe_key)
+
+        deduped.append(ev)
+
+    return deduped
+
 def _gather_completed_events() -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
+
     for user_id, evs in cache.user_history.items():
         if not _is_user_selected(user_id):
             continue
+
         for ev in evs:
             if not ev.get("completed") or not ev.get("date"):
                 continue
-            events.append(ev)
+
+            out = dict(ev)
+            out["userId"] = user_id
+            events.append(out)
+
+    events = _dedupe_completed_events(events, include_user=True)
     events.sort(key=lambda e: float(e.get("date") or 0.0))
     return events
 
 
 def _recent_completed_events(limit: int = 5) -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
+
     for user_id, evs in cache.user_history.items():
         if not _is_user_selected(user_id):
             continue
+
         user_name = cache.users.get(user_id, "")
+
         for ev in evs:
             if not ev.get("completed") or not ev.get("date"):
                 continue
+
             out = dict(ev)
             out["userId"] = user_id
             out["userName"] = user_name
             items.append(out)
+
+    items = _dedupe_completed_events(items, include_user=True)
     items.sort(key=lambda e: float(e.get("date") or 0.0), reverse=True)
     return items[:limit]
 
@@ -604,6 +661,7 @@ async def _run_thumb_cache_job(clear_first: bool = False) -> None:
         if clear_first:
             _clear_thumb_cache_files()
             # Heavy job: rebuild cache from scratch.
+            MISSING_IMAGE_CACHE.clear()
             await refresh_cache(force=True, recache_thumbs=True, low_priority=True)
         else:
             # Lightweight refresh: update data and refresh thumbnails only when missing/expired.
@@ -681,36 +739,142 @@ async def index():
         return f.read()
 
 
-@app.get("/image/{item_id}")
-async def image_proxy(item_id: str, tag: str, maxHeight: int | None = None):
-    """Proxy Jellyfin images to avoid mixed-content or private-host issues."""
-    if not tag:
-        return JSONResponse({"error": "tag is required"}, status_code=400)
+# @app.get("/image/{item_id}")
+# async def image_proxy(item_id: str, tag: str, maxHeight: int | None = None):
+#     """Proxy Jellyfin images to avoid mixed-content or private-host issues."""
+#     if not tag:
+#         return JSONResponse({"error": "tag is required"}, status_code=400)
 
-    url = f"{JELLYFIN_URL}/Items/{item_id}/Images/Primary"
-    headers = {"X-Emby-Token": JELLYFIN_APIKEY}
-    params: Dict[str, Any] = {"tag": tag}
+#     url = f"{JELLYFIN_URL}/Items/{item_id}/Images/Primary"
+#     headers = {"X-Emby-Token": JELLYFIN_APIKEY}
+#     params: Dict[str, Any] = {"tag": tag}
+#     if THUMB_MAX_HEIGHT > 0:
+#         effective_height = maxHeight if (maxHeight is not None and maxHeight > 0) else THUMB_MAX_HEIGHT
+#         params["maxHeight"] = min(effective_height, THUMB_MAX_HEIGHT)
+#     elif maxHeight is not None and maxHeight > 0:
+#         params["maxHeight"] = maxHeight
+
+#     try:
+#         async with httpx.AsyncClient(timeout=30.0) as client:
+#             r = await client.get(url, headers=headers, params=params)
+#             r.raise_for_status()
+#     except Exception as exc:
+#         status = getattr(exc.response, "status_code", 502) if hasattr(exc, "response") else 502
+#         level = logger.info if status == 404 else logger.warning
+#         level("Image proxy failed for %s (%s): %s", item_id, tag, exc)
+#         return JSONResponse({"error": "image fetch failed"}, status_code=status)
+
+#     media_type = r.headers.get("content-type", "image/jpeg")
+#     resp = Response(content=r.content, media_type=media_type)
+#     resp.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
+#     return resp
+
+def _missing_image_cache_key(item_id: str, tag: Optional[str], max_height: Optional[int]) -> str:
+    """
+    Build a stable cache key for missing images.
+    """
+    return f"{item_id}:{tag or 'no-tag'}:{max_height or 0}"
+
+
+def _placeholder_response() -> FileResponse:
+    """
+    Return the local placeholder image.
+    """
+    response = FileResponse(
+        path=str(PLACEHOLDER_IMAGE),
+        media_type="image/jpeg",
+    )
+    response.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
+    return response
+
+@app.get("/image/{item_id}")
+async def image_proxy(
+    item_id: str,
+    tag: Optional[str] = Query(default=None),
+    maxHeight: Optional[int] = Query(default=None),
+):
+    """
+    Proxy an image request to Jellyfin.
+
+    Behaviour:
+    1. Try with the provided tag first.
+    2. If Jellyfin returns 404, retry once without the tag.
+    3. If still missing, cache the miss for 10 minutes.
+    4. Serve a local placeholder instead of returning 404.
+    """
+
+    cache_key = _missing_image_cache_key(item_id, tag, maxHeight)
+    now = time.time()
+
+    expires_at = MISSING_IMAGE_CACHE.get(cache_key)
+    if expires_at is not None:
+        if expires_at > now:
+            print(f"Negative cache hit for {item_id} ({tag or 'no-tag'})")
+            if PLACEHOLDER_IMAGE.exists():
+                return _placeholder_response()
+            return JSONResponse({"error": "image not found"}, status_code=404)
+
+        MISSING_IMAGE_CACHE.pop(cache_key, None)
+
+    base_url = JELLYFIN_URL.rstrip("/")
+    url = f"{base_url}/Items/{item_id}/Images/Primary"
+
+    headers = {
+        "X-Emby-Token": JELLYFIN_APIKEY,
+    }
+
+    params: Dict[str, Any] = {}
+
     if THUMB_MAX_HEIGHT > 0:
         effective_height = maxHeight if (maxHeight is not None and maxHeight > 0) else THUMB_MAX_HEIGHT
         params["maxHeight"] = min(effective_height, THUMB_MAX_HEIGHT)
     elif maxHeight is not None and maxHeight > 0:
         params["maxHeight"] = maxHeight
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.get(url, headers=headers, params=params)
-            r.raise_for_status()
-    except Exception as exc:
-        status = getattr(exc.response, "status_code", 502) if hasattr(exc, "response") else 502
-        level = logger.info if status == 404 else logger.warning
-        level("Image proxy failed for %s (%s): %s", item_id, tag, exc)
-        return JSONResponse({"error": "image fetch failed"}, status_code=status)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            tagged_params = dict(params)
+            if tag:
+                tagged_params["tag"] = tag
 
-    media_type = r.headers.get("content-type", "image/jpeg")
-    resp = Response(content=r.content, media_type=media_type)
-    resp.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
-    return resp
+            response = await client.get(url, headers=headers, params=tagged_params)
 
+            if response.status_code == 404 and tag:
+                print(f"Image not found with tag for {item_id} ({tag}), retrying without tag...")
+                response = await client.get(url, headers=headers, params=params)
+
+            if response.status_code == 404:
+                print(f"Image still not found for {item_id} ({tag or 'no-tag'})")
+                MISSING_IMAGE_CACHE[cache_key] = time.time() + MISSING_IMAGE_TTL_SECONDS
+
+                if PLACEHOLDER_IMAGE.exists():
+                    return _placeholder_response()
+
+                return JSONResponse({"error": "image not found"}, status_code=404)
+
+            response.raise_for_status()
+
+        except httpx.RequestError as exc:
+            print(f"Image proxy failed for {item_id} ({tag or 'no-tag'}): {exc}")
+            if PLACEHOLDER_IMAGE.exists():
+                return _placeholder_response()
+            return JSONResponse({"error": "image fetch failed"}, status_code=502)
+
+        except httpx.HTTPStatusError as exc:
+            print(f"Image proxy failed for {item_id} ({tag or 'no-tag'}): {exc}")
+
+            if exc.response is not None and exc.response.status_code == 404:
+                MISSING_IMAGE_CACHE[cache_key] = time.time() + MISSING_IMAGE_TTL_SECONDS
+                if PLACEHOLDER_IMAGE.exists():
+                    return _placeholder_response()
+
+            status_code = exc.response.status_code if exc.response is not None else 502
+            return JSONResponse({"error": "image fetch failed"}, status_code=status_code)
+
+    media_type = response.headers.get("content-type", "image/jpeg")
+    proxy_response = Response(content=response.content, media_type=media_type)
+    proxy_response.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
+    return proxy_response
 
 @app.get("/trakt/{username}", response_class=HTMLResponse)
 async def trakt_account_page(username: str):
@@ -1092,7 +1256,7 @@ async def api_toggle_user(payload: Dict[str, Any] = Body(...)):
 async def api_recent():
     """Return recent completed items across selected Jellyfin users."""
     await refresh_cache(force=False)
-    items = _recent_completed_events(limit=6)
+    items = _recent_completed_events(limit=8)
     return JSONResponse({"items": items})
 
 
