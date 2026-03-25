@@ -4,11 +4,12 @@ from app.jellyfin_client import JellyfinClient
 from app.store import Cache
 from app.trakt_client import TraktService
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
 
 from fastapi import FastAPI, Body, UploadFile, File, Query
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from typing import Any, Dict, List, Optional, Set
 
 import asyncio
 import hashlib
@@ -19,7 +20,6 @@ import logging
 import os
 import time
 import zipfile
-
 
 JELLYFIN_URL = os.environ.get("JELLYFIN_URL", "").strip()
 JELLYFIN_APIKEY = os.environ.get("JELLYFIN_APIKEY", "").strip()
@@ -59,6 +59,12 @@ except ValueError:
 THUMB_REBUILD_BATCH = max(1, THUMB_REBUILD_BATCH)
 THUMB_REBUILD_PAUSE_MS = max(0.0, THUMB_REBUILD_PAUSE_MS)
 
+# Negative cache for missing images
+MISSING_IMAGE_CACHE: Dict[str, float] = {}
+MISSING_IMAGE_TTL_SECONDS = 600  # 10 minutes
+
+# Local placeholder returned when Jellyfin has no poster
+PLACEHOLDER_IMAGE = Path("static/poster-missing.jpg")
 
 def _default_trakt_db_path() -> str:
     env_path = os.environ.get("TRAKT_DB_PATH", "").strip()
@@ -711,6 +717,24 @@ async def index():
 #     resp.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
 #     return resp
 
+def _missing_image_cache_key(item_id: str, tag: Optional[str], max_height: Optional[int]) -> str:
+    """
+    Build a stable cache key for missing images.
+    """
+    return f"{item_id}:{tag or 'no-tag'}:{max_height or 0}"
+
+
+def _placeholder_response() -> FileResponse:
+    """
+    Return the local placeholder image.
+    """
+    response = FileResponse(
+        path=str(PLACEHOLDER_IMAGE),
+        media_type="image/jpeg",
+    )
+    response.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
+    return response
+
 @app.get("/image/{item_id}")
 async def image_proxy(
     item_id: str,
@@ -723,9 +747,22 @@ async def image_proxy(
     Behaviour:
     1. Try with the provided tag first.
     2. If Jellyfin returns 404, retry once without the tag.
-    3. Return 404 only if the image is still missing.
-    4. Return 502 only for transport/proxy errors.
+    3. If still missing, cache the miss for 10 minutes.
+    4. Serve a local placeholder instead of returning 404.
     """
+
+    cache_key = _missing_image_cache_key(item_id, tag, maxHeight)
+    now = time.time()
+
+    expires_at = MISSING_IMAGE_CACHE.get(cache_key)
+    if expires_at is not None:
+        if expires_at > now:
+            print(f"Negative cache hit for {item_id} ({tag or 'no-tag'})")
+            if PLACEHOLDER_IMAGE.exists():
+                return _placeholder_response()
+            return JSONResponse({"error": "image not found"}, status_code=404)
+
+        MISSING_IMAGE_CACHE.pop(cache_key, None)
 
     base_url = JELLYFIN_URL.rstrip("/")
     url = f"{base_url}/Items/{item_id}/Images/Primary"
@@ -744,7 +781,6 @@ async def image_proxy(
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            # First attempt: use the tag if available
             tagged_params = dict(params)
             if tag:
                 tagged_params["tag"] = tag
@@ -752,27 +788,35 @@ async def image_proxy(
             response = await client.get(url, headers=headers, params=tagged_params)
 
             if response.status_code == 404 and tag:
-                print(
-                    f"Image not found with tag for {item_id} ({tag}), retrying without tag..."
-                )
+                print(f"Image not found with tag for {item_id} ({tag}), retrying without tag...")
                 response = await client.get(url, headers=headers, params=params)
 
             if response.status_code == 404:
-                print(
-                    f"Image still not found for {item_id}"
-                    + (f" ({tag})" if tag else "")
-                )
+                print(f"Image still not found for {item_id} ({tag or 'no-tag'})")
+                MISSING_IMAGE_CACHE[cache_key] = time.time() + MISSING_IMAGE_TTL_SECONDS
+
+                if PLACEHOLDER_IMAGE.exists():
+                    return _placeholder_response()
+
                 return JSONResponse({"error": "image not found"}, status_code=404)
 
             response.raise_for_status()
 
         except httpx.RequestError as exc:
             print(f"Image proxy failed for {item_id} ({tag or 'no-tag'}): {exc}")
+            if PLACEHOLDER_IMAGE.exists():
+                return _placeholder_response()
             return JSONResponse({"error": "image fetch failed"}, status_code=502)
 
         except httpx.HTTPStatusError as exc:
-            status_code = exc.response.status_code if exc.response is not None else 502
             print(f"Image proxy failed for {item_id} ({tag or 'no-tag'}): {exc}")
+
+            if exc.response is not None and exc.response.status_code == 404:
+                MISSING_IMAGE_CACHE[cache_key] = time.time() + MISSING_IMAGE_TTL_SECONDS
+                if PLACEHOLDER_IMAGE.exists():
+                    return _placeholder_response()
+
+            status_code = exc.response.status_code if exc.response is not None else 502
             return JSONResponse({"error": "image fetch failed"}, status_code=status_code)
 
     media_type = response.headers.get("content-type", "image/jpeg")
