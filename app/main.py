@@ -1,24 +1,24 @@
 from __future__ import annotations
 
+from app.jellyfin_client import JellyfinClient
+from app.store import Cache
+from app.trakt_client import TraktService
+from datetime import datetime
+
+from fastapi import FastAPI, Body, UploadFile, File, Query
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
+from typing import Any, Dict, List, Optional, Set
+
 import asyncio
+import hashlib
+import httpx
+import io
 import json
 import logging
 import os
 import time
-import io
 import zipfile
-import hashlib
-from datetime import datetime
-from typing import Any, Dict, List, Set
-
-from fastapi import FastAPI, Body, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
-import httpx
-
-from app.jellyfin_client import JellyfinClient
-from app.store import Cache
-from app.trakt_client import TraktService
 
 
 JELLYFIN_URL = os.environ.get("JELLYFIN_URL", "").strip()
@@ -681,36 +681,104 @@ async def index():
         return f.read()
 
 
-@app.get("/image/{item_id}")
-async def image_proxy(item_id: str, tag: str, maxHeight: int | None = None):
-    """Proxy Jellyfin images to avoid mixed-content or private-host issues."""
-    if not tag:
-        return JSONResponse({"error": "tag is required"}, status_code=400)
+# @app.get("/image/{item_id}")
+# async def image_proxy(item_id: str, tag: str, maxHeight: int | None = None):
+#     """Proxy Jellyfin images to avoid mixed-content or private-host issues."""
+#     if not tag:
+#         return JSONResponse({"error": "tag is required"}, status_code=400)
 
-    url = f"{JELLYFIN_URL}/Items/{item_id}/Images/Primary"
-    headers = {"X-Emby-Token": JELLYFIN_APIKEY}
-    params: Dict[str, Any] = {"tag": tag}
+#     url = f"{JELLYFIN_URL}/Items/{item_id}/Images/Primary"
+#     headers = {"X-Emby-Token": JELLYFIN_APIKEY}
+#     params: Dict[str, Any] = {"tag": tag}
+#     if THUMB_MAX_HEIGHT > 0:
+#         effective_height = maxHeight if (maxHeight is not None and maxHeight > 0) else THUMB_MAX_HEIGHT
+#         params["maxHeight"] = min(effective_height, THUMB_MAX_HEIGHT)
+#     elif maxHeight is not None and maxHeight > 0:
+#         params["maxHeight"] = maxHeight
+
+#     try:
+#         async with httpx.AsyncClient(timeout=30.0) as client:
+#             r = await client.get(url, headers=headers, params=params)
+#             r.raise_for_status()
+#     except Exception as exc:
+#         status = getattr(exc.response, "status_code", 502) if hasattr(exc, "response") else 502
+#         level = logger.info if status == 404 else logger.warning
+#         level("Image proxy failed for %s (%s): %s", item_id, tag, exc)
+#         return JSONResponse({"error": "image fetch failed"}, status_code=status)
+
+#     media_type = r.headers.get("content-type", "image/jpeg")
+#     resp = Response(content=r.content, media_type=media_type)
+#     resp.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
+#     return resp
+
+@app.get("/image/{item_id}")
+async def image_proxy(
+    item_id: str,
+    tag: Optional[str] = Query(default=None),
+    maxHeight: Optional[int] = Query(default=None),
+):
+    """
+    Proxy an image request to Jellyfin.
+
+    Behaviour:
+    1. Try with the provided tag first.
+    2. If Jellyfin returns 404, retry once without the tag.
+    3. Return 404 only if the image is still missing.
+    4. Return 502 only for transport/proxy errors.
+    """
+
+    base_url = JELLYFIN_URL.rstrip("/")
+    url = f"{base_url}/Items/{item_id}/Images/Primary"
+
+    headers = {
+        "X-Emby-Token": JELLYFIN_APIKEY,
+    }
+
+    params: Dict[str, Any] = {}
+
     if THUMB_MAX_HEIGHT > 0:
         effective_height = maxHeight if (maxHeight is not None and maxHeight > 0) else THUMB_MAX_HEIGHT
         params["maxHeight"] = min(effective_height, THUMB_MAX_HEIGHT)
     elif maxHeight is not None and maxHeight > 0:
         params["maxHeight"] = maxHeight
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.get(url, headers=headers, params=params)
-            r.raise_for_status()
-    except Exception as exc:
-        status = getattr(exc.response, "status_code", 502) if hasattr(exc, "response") else 502
-        level = logger.info if status == 404 else logger.warning
-        level("Image proxy failed for %s (%s): %s", item_id, tag, exc)
-        return JSONResponse({"error": "image fetch failed"}, status_code=status)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            # First attempt: use the tag if available
+            tagged_params = dict(params)
+            if tag:
+                tagged_params["tag"] = tag
 
-    media_type = r.headers.get("content-type", "image/jpeg")
-    resp = Response(content=r.content, media_type=media_type)
-    resp.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
-    return resp
+            response = await client.get(url, headers=headers, params=tagged_params)
 
+            if response.status_code == 404 and tag:
+                print(
+                    f"Image not found with tag for {item_id} ({tag}), retrying without tag..."
+                )
+                response = await client.get(url, headers=headers, params=params)
+
+            if response.status_code == 404:
+                print(
+                    f"Image still not found for {item_id}"
+                    + (f" ({tag})" if tag else "")
+                )
+                return JSONResponse({"error": "image not found"}, status_code=404)
+
+            response.raise_for_status()
+
+        except httpx.RequestError as exc:
+            print(f"Image proxy failed for {item_id} ({tag or 'no-tag'}): {exc}")
+            return JSONResponse({"error": "image fetch failed"}, status_code=502)
+
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code if exc.response is not None else 502
+            print(f"Image proxy failed for {item_id} ({tag or 'no-tag'}): {exc}")
+            return JSONResponse({"error": "image fetch failed"}, status_code=status_code)
+
+    media_type = response.headers.get("content-type", "image/jpeg")
+    proxy_response = Response(content=response.content, media_type=media_type)
+    proxy_response.headers["Cache-Control"] = f"public, max-age={IMAGE_CACHE_SECONDS}"
+    return proxy_response
 
 @app.get("/trakt/{username}", response_class=HTMLResponse)
 async def trakt_account_page(username: str):
