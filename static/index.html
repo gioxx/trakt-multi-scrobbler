@@ -1135,6 +1135,23 @@
         document.getElementById('jellyfinModal').addEventListener('click', (e) => { if (e.target.id === 'jellyfinModal') closeJellyfinModal(); });
         document.getElementById('traktModal').addEventListener('click', (e) => { if (e.target.id === 'traktModal') closeTraktModal(); });
         document.getElementById('backupModal').addEventListener('click', (e) => { if (e.target.id === 'backupModal') closeBackupModal(); });
+
+        // ESC closes the topmost open modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const modals = [
+                { el: document.getElementById('deviceModal'), close: closeDeviceModal },
+                { el: document.getElementById('backupModal'), close: closeBackupModal },
+                { el: document.getElementById('traktModal'), close: closeTraktModal },
+                { el: document.getElementById('jellyfinModal'), close: closeJellyfinModal },
+            ];
+            const open = modals.find(m => m.el && m.el.style.display && m.el.style.display !== 'none');
+            if (open) {
+                e.preventDefault();
+                open.close();
+            }
+        });
+
         document.getElementById('filterAll').addEventListener('click', () => { contentFilter = 'all'; renderContentList(); });
         document.getElementById('filterMovies').addEventListener('click', () => { contentFilter = 'movies'; renderContentList(); });
         document.getElementById('filterShows').addEventListener('click', () => { contentFilter = 'shows'; renderContentList(); });
