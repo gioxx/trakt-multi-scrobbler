@@ -832,14 +832,21 @@
                     const pk = e.target.getAttribute('data-provider-key');
                     const gk = e.target.getAttribute('data-group-key');
                     const typ = e.target.getAttribute('data-type') || '';
+                    const enabled = e.target.checked;
                     cb.disabled = true;
                     try {
                         const resp = await fetch('/api/trakt/items/set', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username, providerKey: pk, groupKey: gk, type: typ, enabled: e.target.checked })
+                            body: JSON.stringify({ username, providerKey: pk, groupKey: gk, type: typ, enabled })
                         });
                         if (!resp.ok) throw new Error('save_failed');
+                        // Mirror the change in local state so the orphans box updates immediately.
+                        const target = contentItems.find(it => (it.providerKey || '') === pk && (it.groupKey || '') === gk && (it.type || '') === typ);
+                        if (target) {
+                            target.accounts = (target.accounts || []).map(acc => acc.username === username ? { ...acc, ruleEnabled: enabled } : acc);
+                        }
+                        renderOrphans();
                         showStatus(t('status.saved'), 'success');
                     } catch (err) {
                         e.target.checked = !e.target.checked;
