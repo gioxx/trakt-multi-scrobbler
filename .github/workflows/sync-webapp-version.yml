@@ -1,0 +1,114 @@
+name: Sync webapp version with release tag
+
+# When a new tag/release is created, align the webapp version
+# (static/app_meta.json + inline defaults in static/*.html) with the
+# tag name. If they already match, the workflow exits without changes.
+#
+# Triggers on both `release: published` and `push` to a release tag,
+# so it works whether you publish via the GitHub UI or push a tag
+# from the CLI. The job is idempotent — repeated runs against an
+# already-synced version are no-ops.
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-webapp-version-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            RAW="${{ github.event.release.tag_name }}"
+          else
+            RAW="${GITHUB_REF#refs/tags/}"
+          fi
+          # Strip optional leading 'v'
+          CLEAN="${RAW#v}"
+          echo "raw=$RAW" >> "$GITHUB_OUTPUT"
+          echo "clean=$CLEAN" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read current webapp version
+        id: current
+        run: |
+          CUR=$(jq -r '.version' static/app_meta.json)
+          echo "version=$CUR" >> "$GITHUB_OUTPUT"
+
+      - name: Skip when already in sync
+        if: steps.current.outputs.version == steps.tag.outputs.clean
+        run: |
+          echo "Webapp version already matches tag (${{ steps.tag.outputs.clean }}). Nothing to do."
+
+      - name: Bump webapp version
+        if: steps.current.outputs.version != steps.tag.outputs.clean
+        env:
+          NEW_VERSION: ${{ steps.tag.outputs.clean }}
+          OLD_VERSION: ${{ steps.current.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo "Bumping webapp version: ${OLD_VERSION} -> ${NEW_VERSION}"
+
+          # Update static/app_meta.json
+          tmp=$(mktemp)
+          jq --arg v "${NEW_VERSION}" '.version = $v' static/app_meta.json > "$tmp"
+          mv "$tmp" static/app_meta.json
+
+          # Update inline fallback defaults in HTML (used before app_meta.json loads)
+          for f in static/index.html static/account.html; do
+            if [ -f "$f" ]; then
+              sed -i "s/version: '${OLD_VERSION}'/version: '${NEW_VERSION}'/g" "$f"
+            fi
+          done
+
+      - name: Commit and push to main
+        if: steps.current.outputs.version != steps.tag.outputs.clean
+        env:
+          NEW_VERSION: ${{ steps.tag.outputs.clean }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- static/app_meta.json static/index.html static/account.html; then
+            echo "No file changes detected after bump (already up to date)."
+            exit 0
+          fi
+
+          git add static/app_meta.json static/index.html static/account.html
+          git commit -m "Bump webapp version to ${NEW_VERSION}"
+          git push origin main
+
+      - name: Move release tag to bumped commit
+        if: steps.current.outputs.version != steps.tag.outputs.clean
+        env:
+          TAG: ${{ steps.tag.outputs.raw }}
+        run: |
+          set -euo pipefail
+          # Re-point the tag at the new commit on main so any future
+          # rebuild from this tag picks up the bumped version.
+          git tag -f "${TAG}"
+          git push --force origin "refs/tags/${TAG}"
+          echo "Tag ${TAG} moved to $(git rev-parse HEAD)."
+          echo "Note: pushes made with GITHUB_TOKEN do not re-trigger workflows."
+          echo "If you need the Docker image rebuilt against the bumped commit,"
+          echo "re-run the Docker Build workflow manually for tag ${TAG}."
