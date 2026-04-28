@@ -1123,12 +1123,13 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: var(--r-
 .card.card-inline .meta { padding: 0; }
 
 /* Inside modal bodies, prefer flex-wrap so few cards always span full width */
-.modal-body > .grid {
-    display: flex;
+.modal-panel .modal-body .grid {
+    display: flex !important;
     flex-wrap: wrap;
     gap: 10px;
+    grid-template-columns: none;
 }
-.modal-body > .grid > .card {
+.modal-panel .modal-body .grid > .card {
     flex: 1 1 280px;
     min-width: 0;
 }
