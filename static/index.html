@@ -816,7 +816,8 @@
                 }).join('');
                 const poster = it.thumb ? `<img src="${it.thumb}" alt="">` : `<span class="muted">${t('label.noPoster')}</span>`;
                 const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
-                return `<div class="card">
+                const itemId = `${it.providerKey || ''}|${it.groupKey || ''}|${it.type || ''}`;
+                return `<div class="card" data-item-id="${escapeHtml(itemId)}">
                   <div class="poster">${poster}</div>
                   <div class="meta">
                     <div class="title">${escapeHtml(it.title || '')}</div>
@@ -893,7 +894,8 @@
                     ? `<img src="${it.thumb}" alt="" class="thumb-sm">`
                     : `<div class="thumb-sm" style="background:var(--poster); display:flex; align-items:center; justify-content:center;"><span class="muted">${t('label.noPoster')}</span></div>`;
                 const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
-                return `<div class="card card-inline" style="width:240px;">
+                const itemId = `${it.providerKey || ''}|${it.groupKey || ''}|${it.type || ''}`;
+                return `<div class="card card-inline clickable" style="width:240px; cursor:pointer;" data-jump-to="${escapeHtml(itemId)}" role="button" tabindex="0">
                   ${poster}
                   <div class="meta" style="flex:1;">
                     <div class="title">${escapeHtml(it.title || '')}</div>
@@ -901,6 +903,40 @@
                   </div>
                 </div>`;
             }).join('');
+            list.querySelectorAll('[data-jump-to]').forEach(el => {
+                const handler = () => jumpToContentItem(el.getAttribute('data-jump-to'));
+                el.addEventListener('click', handler);
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+                });
+            });
+        }
+
+        function jumpToContentItem(itemId) {
+            if (!itemId) return;
+            const grid = document.getElementById('grid');
+            let target = grid && grid.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`);
+            if (!target) {
+                // Item is hidden by the active filter — reset filters that could hide it.
+                if (contentFilter !== 'all' && contentFilter !== 'unassigned') {
+                    contentFilter = 'all';
+                }
+                if (alphaFilter) alphaFilter = '';
+                if (accountFilter) {
+                    accountFilter = '';
+                    const sel = document.getElementById('accountFilter');
+                    if (sel) sel.value = '';
+                }
+                const search = document.getElementById('search');
+                if (search && search.value) search.value = '';
+                renderAlphaBar();
+                renderContentList();
+                target = grid && grid.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`);
+            }
+            if (!target) return;
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('flash-highlight');
+            setTimeout(() => target.classList.remove('flash-highlight'), 1800);
         }
 
         async function bulkApply(enable) {
