@@ -8,6 +8,12 @@
     <link rel="icon" type="image/webp" href="/static/scrobbler_icon.webp" />
     <link rel="stylesheet" href="/static/styles.css" />
     <link rel="stylesheet" href="/static/tailwind.css" />
+    <script>
+        (() => {
+            const pref = localStorage.getItem('theme-preference') || 'system';
+            if (pref === 'light' || pref === 'dark') document.documentElement.setAttribute('data-theme', pref);
+        })();
+    </script>
 </head>
 
 <body>
@@ -16,24 +22,21 @@
         <span id="bootLoadingText">Loading data…</span>
     </div>
     <header>
-        <div class="brand" style="display:flex; align-items:center; gap:8px;">
-            <a href="/" style="display:flex; align-items:center; gap:8px; color:inherit; text-decoration:none;">
-                <img src="/static/scrobbler_icon.webp" alt="" width="40" height="40" aria-hidden="true" />
-                <div>
-                    <div id="brandTitle" style="font-size:18px;">Trakt Multi-Scrobbler</div>
-                    <div id="brandSubtitle" class="muted" style="font-size:12px;">Trakt account</div>
-                </div>
-            </a>
-        </div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-            <a href="/" class="pill" id="backLink" style="text-decoration:none;">← Overview</a>
-            <div id="accountSummary" class="pill">—</div>
-            <button id="btnAccountSync" class="pill" style="cursor:pointer;">⇅</button>
-            <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
-                <option value="en">🌐 EN</option>
-                <option value="it">🌐 IT</option>
-            </select>
-            <button id="btnTheme" class="pill icon-btn" style="cursor:pointer;" aria-label="Toggle theme">🌙</button>
+        <a class="brand" href="/" aria-label="Trakt Multi-Scrobbler — home">
+            <img src="/static/scrobbler_icon.webp" alt="" width="44" height="44" aria-hidden="true" />
+            <span id="brandTitle">Trakt Multi-Scrobbler</span>
+        </a>
+        <div id="accountSummary" class="pill summary-stats">ℹ️ —</div>
+        <button id="btnHamburger" class="hamburger-btn" aria-label="Menu" aria-expanded="false" aria-controls="headerActions">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="header-actions" id="headerActions">
+            <a href="/" class="pill" id="backLink">← Overview</a>
+            <button id="btnAccountSync" class="pill" title="Sync">⇅ <span id="btnAccountSyncLabel">Sync</span></button>
+            <div class="lang-switcher" id="langSwitcher" role="group" aria-label="Language">
+                <button type="button" class="lang-btn" data-lang="en">EN</button>
+                <button type="button" class="lang-btn" data-lang="it">IT</button>
+            </div>
         </div>
     </header>
 
@@ -41,11 +44,11 @@
         <section class="panel">
             <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;">
                 <div>
-                    <div id="pageTitle" style="font-weight:700; font-size:18px;">Trakt account</div>
+                    <div id="pageTitle" class="section-title" style="padding-top:0;">Trakt account</div>
                     <div id="pageSubtitle" class="muted">Assigned content for this Trakt user.</div>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-                    <div id="statusPill" class="pill">—</div>
+                    <button type="button" id="statusPill" class="pill">—</button>
                     <div id="lastSyncPill" class="pill">—</div>
                     <div id="countPill" class="pill">—</div>
                 </div>
@@ -55,7 +58,7 @@
         <section class="panel">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
-                    <div id="selectedTitle" style="font-weight:700; font-size:16px;">Selected content</div>
+                    <div id="selectedTitle" class="section-title" style="padding-top:0;">Selected content</div>
                     <div id="selectedHelper" class="muted">Items currently scrobbling for this account.</div>
                 </div>
             </div>
@@ -74,7 +77,7 @@
         <section class="panel" id="blockedSection" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
-                    <div id="blockedTitle" style="font-weight:700; font-size:16px;">Not syncing to this account</div>
+                    <div id="blockedTitle" class="section-title" style="padding-top:0;">Not syncing to this account</div>
                     <div id="blockedHelper" class="muted">Content currently excluded for this Trakt user.</div>
                 </div>
                 <div class="pill" id="blockedCount">0</div>
@@ -85,37 +88,55 @@
         <section class="panel" id="missingPanel" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
-                    <div id="missingTitle" style="font-weight:700; font-size:16px;">Missing content</div>
+                    <div id="missingTitle" class="section-title" style="padding-top:0;">Missing content</div>
                     <div id="missingHelper" class="muted">Assigned items no longer found in Jellyfin.</div>
                 </div>
             </div>
             <div id="missingList" class="grid"></div>
         </section>
+
         <section class="panel footer-panel">
-            <div class="footer-grid" style="display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px;">
+            <div class="footer-grid">
                 <div class="footer-text">
                     <div class="footer-title" id="footerProjectName">Trakt Multi-Scrobbler</div>
                     <div class="footer-meta" id="footerProjectDesc">Jellyfin to Trakt sync dashboard.</div>
                 </div>
-                <div class="footer-actions" style="display:flex; align-items:center; gap:8px; justify-content:flex-end; white-space:nowrap;">
+                <div class="footer-actions">
                     <div class="pill" id="footerVersion">Version —</div>
-                    <a class="pill" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener" aria-label="GitHub repository" title="GitHub repository">
-                        <img src="/static/github.svg" alt="GitHub" width="16" height="16" style="display:block;" />
+                    <a class="pill icon-btn" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener noreferrer" aria-label="GitHub repository" title="GitHub repository">
+                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12c0 5.1 3.29 9.42 7.86 10.95.58.12.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.69-3.88-1.54-3.88-1.54-.53-1.33-1.29-1.68-1.29-1.68-1.06-.72.08-.71.08-.71 1.17.08 1.79 1.21 1.79 1.21 1.04 1.78 2.73 1.27 3.4.97.11-.76.41-1.27.75-1.56-2.56-.29-5.26-1.28-5.26-5.7 0-1.26.45-2.28 1.2-3.08-.12-.29-.52-1.47.12-3.06 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 2.9-.39c.99 0 1.99.13 2.92.39 2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.77.12 3.06.75.8 1.2 1.82 1.2 3.08 0 4.43-2.7 5.41-5.28 5.69.42.36.8 1.07.8 2.16 0 1.56-.01 2.81-.01 3.19 0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+                        </svg>
                     </a>
+                </div>
+            </div>
+            <div class="footer-theme-bar">
+                <div class="theme-switcher" id="themeSwitcher" role="group" aria-label="Theme">
+                    <button type="button" class="theme-btn" data-theme-value="system">System</button>
+                    <button type="button" class="theme-btn" data-theme-value="dark">Dark</button>
+                    <button type="button" class="theme-btn" data-theme-value="light">Light</button>
                 </div>
             </div>
         </section>
     </main>
 
-    <div id="toast" style="position:fixed; right:16px; bottom:16px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); box-shadow:0 4px 14px rgba(0,0,0,0.25); display:none; z-index:9999; min-width:200px; max-width:320px; background: var(--panel); color: var(--text);"></div>
+    <div id="toast" class="toast"></div>
+
+    <button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top" title="Scroll to top">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="18 15 12 9 6 15"/>
+        </svg>
+    </button>
 
     <script>
         let translations = {};
         let currentLang = 'en';
+        const THEME_KEY = 'theme-preference';
+        let currentTheme = localStorage.getItem(THEME_KEY) || 'system';
         let accountData = null;
-        let currentTheme = 'dark';
         let typeFilter = 'all';
         let alphaFilter = '';
+        let toastTimer = null;
         const bootLoading = document.getElementById('bootLoading');
         const bootLoadingText = document.getElementById('bootLoadingText');
         let appMeta = {
@@ -125,6 +146,12 @@
             description: 'Jellyfin to Trakt sync dashboard.'
         };
         const username = decodeURIComponent((window.location.pathname.split('/').filter(Boolean).pop() || '').replace(/%2F/g, '/'));
+
+        function normalizeLang(lang) {
+            const value = String(lang || 'en').toLowerCase();
+            if (value.startsWith('it')) return 'it';
+            return 'en';
+        }
 
         function escapeHtml(s) {
             return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -152,6 +179,40 @@
             return `${t('account.rule.unknown')}: ${raw}`;
         }
 
+        function showStatus(message, type = 'info') {
+            const el = document.getElementById('toast');
+            if (!el) return;
+            const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            el.textContent = `${icon} ${message}`;
+            el.className = `toast toast-${type}`;
+            el.style.display = 'block';
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2600);
+        }
+
+        function applyTheme(pref) {
+            currentTheme = (pref === 'light' || pref === 'dark') ? pref : 'system';
+            if (currentTheme === 'light' || currentTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', currentTheme);
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            localStorage.setItem(THEME_KEY, currentTheme);
+            updateThemeSwitcher();
+        }
+
+        function updateThemeSwitcher() {
+            document.querySelectorAll('[data-theme-value]').forEach(btn => {
+                btn.classList.toggle('is-active', btn.dataset.themeValue === currentTheme);
+            });
+        }
+
+        function updateLangSwitcher() {
+            document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
+                btn.classList.toggle('is-active', btn.dataset.lang === currentLang);
+            });
+        }
+
         function renderFooterMeta() {
             const nameEl = document.getElementById('footerProjectName');
             const descEl = document.getElementById('footerProjectDesc');
@@ -174,51 +235,10 @@
                 const r = await fetch('/static/app_meta.json', { cache: 'no-cache' });
                 if (r.ok) {
                     const data = await r.json();
-                    appMeta = {
-                        ...appMeta,
-                        ...(data || {}),
-                    };
+                    appMeta = { ...appMeta, ...(data || {}) };
                 }
-            } catch (e) {
-                // Keep local defaults if meta file is unavailable.
-            }
+            } catch (e) {}
             renderFooterMeta();
-        }
-
-        function showStatus(message, type = 'info') {
-            const el = document.getElementById('toast');
-            if (!el) return;
-            const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
-            el.textContent = `${icon} ${message}`;
-            const color = type === 'error' ? '#3b1b1b' : type === 'success' ? '#11321e' : '#132033';
-            const border = type === 'error' ? '#7a2c2c' : type === 'success' ? '#235932' : '#1f2c44';
-            el.style.background = color;
-            el.style.borderColor = border;
-            el.style.display = 'block';
-            setTimeout(() => {
-                el.style.display = 'none';
-            }, 2600);
-        }
-
-        function applyTheme(theme) {
-            currentTheme = theme;
-            document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('theme', theme);
-            const btn = document.getElementById('btnTheme');
-            if (btn) {
-                btn.textContent = theme === 'light' ? '☀️' : '🌙';
-                btn.setAttribute('aria-label', theme === 'light' ? t('theme.dark') : t('theme.light'));
-            }
-        }
-
-        function initTheme() {
-            const saved = localStorage.getItem('theme');
-            if (saved === 'light' || saved === 'dark') {
-                applyTheme(saved);
-                return;
-            }
-            const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-            applyTheme(prefersLight ? 'light' : 'dark');
         }
 
         function renderAlphaBar() {
@@ -239,16 +259,16 @@
         }
 
         async function loadLang(lang) {
-            currentLang = lang;
+            currentLang = normalizeLang(lang);
             try {
-                const r = await fetch(`/static/locales/${lang}.json`);
+                const r = await fetch(`/static/locales/${currentLang}.json`);
                 translations = await r.json();
-                localStorage.setItem('lang', lang);
+                localStorage.setItem('lang', currentLang);
             } catch (e) {
                 translations = {};
             }
             if (bootLoadingText) bootLoadingText.textContent = t('loading') || 'Loading data…';
-            document.getElementById('langSelect').value = lang;
+            updateLangSwitcher();
             renderAccount();
         }
 
@@ -260,7 +280,6 @@
             const countPill = document.getElementById('countPill');
             const summary = document.getElementById('accountSummary');
 
-            document.getElementById('brandSubtitle').textContent = t('account.title');
             document.getElementById('backLink').textContent = t('account.back');
             document.getElementById('selectedTitle').textContent = t('account.selectedTitle');
             document.getElementById('selectedHelper').textContent = t('account.selectedHelper');
@@ -272,7 +291,9 @@
             document.getElementById('filterAll').textContent = t('filter.all');
             document.getElementById('filterMovies').textContent = t('filter.movies');
             document.getElementById('filterShows').textContent = t('filter.shows');
-            document.getElementById('btnAccountSync').textContent = t('account.syncNow');
+            const syncLabel = document.getElementById('btnAccountSyncLabel');
+            if (syncLabel) syncLabel.textContent = t('account.syncNow');
+            document.getElementById('btnAccountSync').setAttribute('title', t('account.syncNow'));
             title.textContent = t('account.title');
             const name = accountData && accountData.username ? accountData.username : username || '—';
             subtitle.textContent = t('account.subtitle', { user: name });
@@ -281,13 +302,14 @@
             const statusLabel = enabled ? t('account.statusEnabled') : t('account.statusDisabled');
             statusPill.textContent = statusLabel;
             statusPill.style.cursor = 'pointer';
+            statusPill.classList.toggle('active', enabled);
             statusPill.setAttribute('data-enabled', enabled ? '1' : '0');
             const last = accountData && accountData.lastSynced ? new Date(accountData.lastSynced * 1000).toLocaleString() : t('label.never');
             lastSyncPill.textContent = t('account.lastSync', { date: last });
             const movies = accountData && accountData.counts ? accountData.counts.movies || 0 : 0;
             const shows = accountData && accountData.counts ? accountData.counts.shows || 0 : 0;
             countPill.textContent = t('account.counts', { movies, shows });
-            summary.textContent = t('account.summary', { user: name, status: statusLabel });
+            summary.textContent = `ℹ️ ${t('account.summary', { user: name, status: statusLabel })}`;
             document.title = `${name} · Trakt Multi-Scrobbler`;
             renderFooterMeta();
 
@@ -344,7 +366,7 @@
             <div class="sub">${escapeHtml(subtitle)}</div>
             ${ruleLine}
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="pill" data-remove="${escapeHtml(it.ruleKey || '')}" style="background:#241014;">${t('account.remove')}</button>
+              <button class="pill danger" data-remove="${escapeHtml(it.ruleKey || '')}">${t('account.remove')}</button>
             </div>
           </div>
         </div>`;
@@ -364,7 +386,6 @@
                         const data = await r.json().catch(() => ({}));
                         if (!r.ok || !data.ok) throw new Error(data.error || 'remove_failed');
                         showStatus(t('account.removed'), 'success');
-                        // Optimistically move to blocked list.
                         const found = (accountData.items || []).find(i => i.ruleKey === ruleKey);
                         if (found) {
                             accountData.items = (accountData.items || []).filter(i => i.ruleKey !== ruleKey);
@@ -430,7 +451,6 @@
                         const data = await r.json().catch(() => ({}));
                         if (!r.ok || !data.ok) throw new Error(data.error || 'enable_failed');
                         showStatus(t('account.allowed'), 'success');
-                        // Optimistically move it from blocked to items.
                         const found = (accountData.blocked || []).find(i => i.ruleKey === ruleKey);
                         if (found) {
                             accountData.blocked = (accountData.blocked || []).filter(i => i.ruleKey !== ruleKey);
@@ -474,6 +494,7 @@
                 if (!r.ok || !data.ok) throw new Error(data.error || 'load_failed');
                 accountData = data;
                 renderAccount();
+                renderBlocked();
             } catch (e) {
                 accountData = null;
                 grid.innerHTML = `<div class="muted">${t('account.loadError')}</div>`;
@@ -481,14 +502,43 @@
             }
         }
 
-        document.getElementById('btnTheme').addEventListener('click', () => {
-            applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+        // Lang switcher
+        document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await loadLang(btn.dataset.lang);
+                await loadAccount();
+            });
         });
 
-        document.getElementById('langSelect').addEventListener('change', async (e) => {
-            await loadLang(e.target.value);
-            await loadAccount();
+        // Theme switcher
+        document.querySelectorAll('[data-theme-value]').forEach(btn => {
+            btn.addEventListener('click', () => applyTheme(btn.dataset.themeValue));
         });
+
+        // Hamburger
+        const btnHamburger = document.getElementById('btnHamburger');
+        const headerActions = document.getElementById('headerActions');
+        if (btnHamburger && headerActions) {
+            btnHamburger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = headerActions.classList.toggle('is-open');
+                btnHamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            });
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('header')) {
+                    headerActions.classList.remove('is-open');
+                    btnHamburger.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        // Scroll to top
+        (() => {
+            const btn = document.getElementById('scrollTopBtn');
+            if (!btn) return;
+            window.addEventListener('scroll', () => btn.classList.toggle('visible', window.scrollY > 300), { passive: true });
+            btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        })();
 
         document.getElementById('search').addEventListener('input', renderItems);
         document.getElementById('filterAll').addEventListener('click', () => { typeFilter = 'all'; renderItems(); });
@@ -536,14 +586,14 @@
         });
 
         (async () => {
-            const storedLang = localStorage.getItem('lang') || 'en';
-            initTheme();
+            const storedLang = normalizeLang(localStorage.getItem('lang') || 'en');
             try {
-                await loadAppMeta();
-                await loadLang(storedLang);
+                await Promise.all([loadAppMeta(), loadLang(storedLang)]);
+                applyTheme(currentTheme);
                 renderAlphaBar();
                 await loadAccount();
-                renderBlocked();
+            } catch (e) {
+                showStatus(t('account.loadError') || 'Load failed', 'error');
             } finally {
                 if (bootLoading) bootLoading.style.display = 'none';
             }

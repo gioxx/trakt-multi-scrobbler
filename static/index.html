@@ -8,6 +8,12 @@
     <link rel="icon" type="image/webp" href="/static/scrobbler_icon.webp" />
     <link rel="stylesheet" href="/static/styles.css" />
     <link rel="stylesheet" href="/static/tailwind.css" />
+    <script>
+        (() => {
+            const pref = localStorage.getItem('theme-preference') || 'system';
+            if (pref === 'light' || pref === 'dark') document.documentElement.setAttribute('data-theme', pref);
+        })();
+    </script>
 </head>
 
 <body>
@@ -16,78 +22,77 @@
         <span id="bootLoadingText">Loading data…</span>
     </div>
     <header>
-        <div class="brand" style="display:flex; align-items:center; gap:8px;">
-            <a href="/" style="display:flex; align-items:center; gap:8px; color:inherit; text-decoration:none;">
-                <img src="/static/scrobbler_icon.webp" alt="" width="44" height="44" aria-hidden="true" />
-                <div>
-                    <div id="brandTitle" style="font-size:18px;">Trakt Multi-Scrobbler</div>
-                    <div id="brandSubtitle" class="muted" style="font-size:12px;">Jellyfin → Trakt per più utenti</div>
-                </div>
-            </a>
-        </div>
-        <div class="header-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-            <button id="btnJellyfinModal" class="pill" style="cursor:pointer;">👤 Jellyfin User(s)</button>
-            <button id="btnTraktModal" class="pill" style="cursor:pointer;">👤 Trakt User(s)</button>
-            <div id="summary" class="pill">ℹ️ Loading…</div>
-            <button id="btnBackup" class="pill" style="cursor:pointer;" title="Backup">💾 Backup</button>
-            <input type="file" id="backupFile" accept=".zip" style="display:none;">
-            <select id="langSelect" class="pill" style="cursor:pointer; border-radius:12px;">
-                <option value="en">🌐 EN</option>
-                <option value="it">🌐 IT</option>
-            </select>
-            <button id="btnTheme" class="pill icon-btn" style="cursor:pointer;" aria-label="Toggle theme">🌙</button>
+        <a class="brand" href="/" aria-label="Trakt Multi-Scrobbler — home">
+            <img src="/static/scrobbler_icon.webp" alt="" width="44" height="44" aria-hidden="true" />
+            <span id="brandTitle">Trakt Multi-Scrobbler</span>
+        </a>
+        <div id="summary" class="pill summary-stats">ℹ️ Loading…</div>
+        <button id="btnHamburger" class="hamburger-btn" aria-label="Menu" aria-expanded="false" aria-controls="headerActions">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="header-actions" id="headerActions">
+            <button id="btnJellyfinModal" class="pill">👤 Jellyfin</button>
+            <button id="btnTraktModal" class="pill">👤 Trakt</button>
+            <button id="btnBackup" class="pill" title="Backup">💾 <span id="btnBackupLabel">Backup</span></button>
+            <button id="btnSync" class="pill" title="Sync">⇅ <span id="btnSyncLabel">Sync</span></button>
+            <div class="lang-switcher" id="langSwitcher" role="group" aria-label="Language">
+                <button type="button" class="lang-btn" data-lang="en">EN</button>
+                <button type="button" class="lang-btn" data-lang="it">IT</button>
+            </div>
         </div>
     </header>
 
     <main>
-        <div id="backendStatus" style="display:none; margin-bottom:10px; padding:10px 12px; border-radius:12px; border:1px solid #613b2f; background:#2d1a15; color:#f3d9d0; font-weight:600;">
-            ⚠️ Jellyfin non raggiungibile. Riprova più tardi o controlla JELLYFIN_URL / rete.
+        <div id="backendStatus" class="backend-status" style="display:none;">
+            ⚠️ Jellyfin unreachable. Check JELLYFIN_URL / network and retry.
         </div>
-        <section class="panel">
+
+        <section class="panel content-panel">
             <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-bottom:8px;">
                 <div>
-                    <div id="recentTitle" style="font-weight:700; font-size:17px;">Ultimi visti</div>
-                    <div id="recentHelper" class="muted">Contenuti appena visti dagli utenti Jellyfin selezionati.</div>
+                    <div id="recentTitle" class="section-title" style="padding-top:0;">Recently watched</div>
+                    <div id="recentHelper" class="muted">Last items watched by the selected Jellyfin users.</div>
                 </div>
             </div>
-            <div id="recentList" class="grid"></div>
+            <div id="recentList" class="recent-list"></div>
         </section>
 
         <section id="orphansSection" class="panel" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
-                    <div id="orphansTitle" style="font-weight:700; font-size:17px;">Unassigned content</div>
-                    <div id="orphansHelper" class="muted">Nuovi titoli senza alcun account Trakt selezionato.</div>
+                    <div id="orphansTitle" class="section-title" style="padding-top:0;">Unassigned content</div>
+                    <div id="orphansHelper" class="muted">New titles with no Trakt accounts selected yet.</div>
                 </div>
                 <div class="pill" id="orphansCount">0</div>
             </div>
-            <div id="orphansList" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+            <div id="orphansList" class="orphans-row"></div>
         </section>
 
         <section class="panel">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                 <div>
-                    <div id="contentTitle" style="font-weight:700; font-size:17px;">Content filters</div>
-                    <div id="contentHelper" class="muted">Decidi per quali account Trakt scrobbla ogni film/serie.</div>
+                    <div id="contentTitle" class="section-title" style="padding-top:0;">Content filters</div>
+                    <div id="contentHelper" class="muted">Decide which Trakt accounts should scrobble each film/series.</div>
                 </div>
+                <div class="pill" id="contentCount">—</div>
             </div>
             <div class="row">
-                <input id="search" placeholder="Filter content…" style="flex:1 1 320px;" />
+                <input id="search" placeholder="Filter by title…" />
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button id="filterAll" class="pill">All</button>
                     <button id="filterMovies" class="pill">Movies</button>
-                    <button id="filterShows" class="pill">Shows</button>
+                    <button id="filterShows" class="pill">Series</button>
                     <button id="filterUnassigned" class="pill">Unassigned</button>
                 </div>
                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                     <label class="muted" for="accountFilter" id="accountFilterLabel">Assigned to:</label>
-                    <select id="accountFilter" style="min-width:180px;"></select>
+                    <select id="accountFilter"></select>
                 </div>
             </div>
-            <div class="row" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div class="row" style="justify-content:space-between; gap:10px;">
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                     <label class="muted" for="bulkAccount">Bulk target:</label>
-                    <select id="bulkAccount" style="min-width:220px;"></select>
+                    <select id="bulkAccount"></select>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button id="btnSelectAll">Select all</button>
@@ -97,36 +102,46 @@
             <div id="alphaBar" class="alpha-row"></div>
             <div id="grid" class="grid"></div>
         </section>
+
         <section class="panel footer-panel">
-            <div class="footer-grid" style="display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px;">
+            <div class="footer-grid">
                 <div class="footer-text">
                     <div class="footer-title" id="footerProjectName">Trakt Multi-Scrobbler</div>
                     <div class="footer-meta" id="footerProjectDesc">Jellyfin to Trakt sync dashboard.</div>
                 </div>
-                <div class="footer-actions" style="display:flex; align-items:center; gap:8px; justify-content:flex-end; white-space:nowrap;">
+                <div class="footer-actions">
                     <div class="pill" id="footerVersion">Version —</div>
-                    <a class="pill" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener" aria-label="GitHub repository" title="GitHub repository">
-                        <img src="/static/github.svg" alt="GitHub" width="16" height="16" style="display:block;" />
+                    <a class="pill icon-btn" id="footerRepoLink" href="https://github.com/gioxx/trakt-multi-scrobbler" target="_blank" rel="noopener noreferrer" aria-label="GitHub repository" title="GitHub repository">
+                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12c0 5.1 3.29 9.42 7.86 10.95.58.12.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.69-3.88-1.54-3.88-1.54-.53-1.33-1.29-1.68-1.29-1.68-1.06-.72.08-.71.08-.71 1.17.08 1.79 1.21 1.79 1.21 1.04 1.78 2.73 1.27 3.4.97.11-.76.41-1.27.75-1.56-2.56-.29-5.26-1.28-5.26-5.7 0-1.26.45-2.28 1.2-3.08-.12-.29-.52-1.47.12-3.06 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 2.9-.39c.99 0 1.99.13 2.92.39 2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.77.12 3.06.75.8 1.2 1.82 1.2 3.08 0 4.43-2.7 5.41-5.28 5.69.42.36.8 1.07.8 2.16 0 1.56-.01 2.81-.01 3.19 0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/>
+                        </svg>
                     </a>
+                </div>
+            </div>
+            <div class="footer-theme-bar">
+                <div class="theme-switcher" id="themeSwitcher" role="group" aria-label="Theme">
+                    <button type="button" class="theme-btn" data-theme-value="system">System</button>
+                    <button type="button" class="theme-btn" data-theme-value="dark">Dark</button>
+                    <button type="button" class="theme-btn" data-theme-value="light">Light</button>
                 </div>
             </div>
         </section>
     </main>
 
-    <div id="deviceModal" class="modal-backdrop" style="display:none;">
-        <div class="modal-panel">
+    <div id="deviceModal" class="modal-backdrop">
+        <div class="modal-panel" style="max-width:560px;">
             <div class="modal-header">
-                <div id="deviceTitle" style="font-weight:700;">Add Trakt account</div>
+                <div id="deviceTitle">Add Trakt account</div>
                 <button id="btnCloseDevice">Close</button>
             </div>
             <div class="modal-body">
                 <p id="deviceStep" class="muted"></p>
-                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                    <div id="deviceCode" style="font-size:28px; font-weight:700;">—</div>
-                    <a id="deviceUrl" href="#" target="_blank" rel="noopener" style="color:#5b7cff;">Open verification URL</a>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <div id="deviceCode" class="device-code">—</div>
+                    <a id="deviceUrl" class="device-link" href="#" target="_blank" rel="noopener">Open verification URL</a>
                 </div>
                 <div id="deviceStatus" class="muted"></div>
-                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px; flex-wrap:wrap;">
+                <div class="modal-footer">
                     <button id="btnPollNow">Check now</button>
                     <button id="btnCancelDevice">Cancel</button>
                 </div>
@@ -134,88 +149,95 @@
         </div>
     </div>
 
-    <div id="jellyfinModal" class="modal-backdrop" style="display:none;">
+    <div id="jellyfinModal" class="modal-backdrop">
         <div class="modal-panel">
             <div class="modal-header">
-                <div id="jellyfinTitle" style="font-weight:700;">Jellyfin users</div>
+                <div id="jellyfinTitle">Jellyfin users</div>
                 <button id="btnCloseJellyfin">Close</button>
             </div>
             <div class="modal-body">
-                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
-                    <p id="jellyfinHelper" class="muted" style="margin:0;">Scegli quali utenti Jellyfin usare come base per lo scrobbling.</p>
-                    <button id="btnRefresh" class="pill" style="cursor:pointer;">↻</button>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <p id="jellyfinHelper" class="muted" style="margin:0; flex:1;">Pick which Jellyfin users drive scrobbling.</p>
+                    <button id="btnRefresh" class="pill" title="Refresh">↻</button>
                 </div>
                 <div id="jellyfinUsers" class="grid"></div>
             </div>
         </div>
     </div>
 
-    <div id="traktModal" class="modal-backdrop" style="display:none;">
+    <div id="traktModal" class="modal-backdrop">
         <div class="modal-panel">
             <div class="modal-header">
-                <div id="traktTitle" style="font-weight:700;">Trakt accounts</div>
+                <div id="traktTitle">Trakt accounts</div>
                 <button id="btnCloseTrakt">Close</button>
             </div>
             <div class="modal-body">
-                <p id="traktHelper" class="muted">Attiva o disattiva lo scrobbling per ciascun account collegato.</p>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                <p id="traktHelper" class="muted">Toggle which Trakt users receive new Jellyfin watches.</p>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button id="btnAddTrakt">Add Trakt account</button>
                     <button id="btnReloadTrakt">Reload accounts</button>
-                    <button id="btnSync">⇅</button>
                 </div>
-                <div id="traktNotice" class="muted" style="margin-bottom:10px; display:none;"></div>
+                <div id="traktNotice" class="muted" style="display:none;"></div>
                 <div id="traktAccounts" class="grid"></div>
             </div>
         </div>
     </div>
 
-    <div id="backupModal" class="modal-backdrop" style="display:none;">
+    <div id="backupModal" class="modal-backdrop">
         <div class="modal-panel">
             <div class="modal-header">
-                <div id="backupTitle" style="font-weight:700;">Backup &amp; Restore</div>
+                <div id="backupTitle">Backup &amp; Restore</div>
                 <button id="btnCloseBackup">Close</button>
             </div>
             <div class="modal-body">
-                <p id="backupHelper" class="muted">Scarica la configurazione o ripristina da un file ZIP.</p>
-                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+                <p id="backupHelper" class="muted">Download your configuration or restore it on a new install.</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button id="btnBackupDownload" class="pill">💾 <span id="backupDownloadLabel">Backup</span></button>
                     <button id="btnBackupRestore" class="pill">📂 <span id="backupRestoreLabel">Restore</span></button>
                 </div>
                 <input type="file" id="backupFile" accept=".zip" style="display:none;">
                 <div class="muted" style="font-size:12px;">
-                    <span id="backupHint">Il backup include token Trakt (JSON), regole/DB SQLite e stato Jellyfin.</span>
+                    <span id="backupHint">Backup includes Trakt tokens (JSON), SQLite rules and Jellyfin state.</span>
                 </div>
-                <div style="margin-top:14px; padding-top:10px; border-top:1px solid var(--border);">
+                <div style="margin-top:8px; padding-top:12px; border-top:1px solid var(--border);">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
                         <div>
                             <div id="cacheTitle" style="font-weight:700;">Poster cache</div>
-                            <div id="cacheHelper" class="muted" style="font-size:12px;">Info cache locandine e refresh forzato.</div>
+                            <div id="cacheHelper" class="muted" style="font-size:12px;">Thumbnail cache info and refresh.</div>
                         </div>
-                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
                             <button id="btnCacheRefresh" class="pill">↻ <span id="cacheRefreshLabel">Refresh</span></button>
                             <button id="btnCacheClear" class="pill">🧹 <span id="cacheClearLabel">Clear + rebuild</span></button>
                         </div>
                     </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:13px;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:13px;">
                         <div class="pill" id="cacheLast">—</div>
                         <div class="pill" id="cacheFiles">—</div>
                         <div class="pill" id="cacheSize">—</div>
                     </div>
-                    <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
-                        <div class="pill" id="cacheProgress">—</div>
-                        <div class="pill" id="cacheEta">—</div>
-                        <progress id="cacheProgressBar" max="100" value="0" style="width:100%; height:8px;"></progress>
+                    <div style="display:flex; flex-direction:column; gap:6px; margin-top:10px;">
+                        <div class="pill" id="cacheProgress" style="justify-content:flex-start; width:100%;">—</div>
+                        <div class="pill" id="cacheEta" style="justify-content:flex-start; width:100%;">—</div>
+                        <progress id="cacheProgressBar" max="100" value="0"></progress>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="toast" style="position:fixed; right:16px; bottom:16px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); box-shadow:0 4px 14px rgba(0,0,0,0.25); display:none; z-index:9999; min-width:200px; max-width:320px; background: var(--panel); color: var(--text);"></div>
+    <div id="toast" class="toast"></div>
+
+    <button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top" title="Scroll to top">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="18 15 12 9 6 15"/>
+        </svg>
+    </button>
 
     <script>
         let translations = {};
         let currentLang = 'en';
+        const THEME_KEY = 'theme-preference';
+        let currentTheme = localStorage.getItem(THEME_KEY) || 'system';
         const bootLoading = document.getElementById('bootLoading');
         const bootLoadingText = document.getElementById('bootLoadingText');
         const backendStatus = document.getElementById('backendStatus');
@@ -225,7 +247,6 @@
         let currentDeviceCode = '';
         let deviceExpiresAt = 0;
         let devicePollIntervalSec = 5;
-        let lastPollError = false;
         let contentItems = [];
         let contentFilter = 'all';
         let alphaFilter = '';
@@ -233,7 +254,6 @@
         let accountFilter = '';
         let toastTimer = null;
         let cacheStatusTimer = null;
-        let currentTheme = 'dark';
         let appMeta = {
             name: 'Trakt Multi-Scrobbler',
             version: '0.4.0',
@@ -245,49 +265,6 @@
             const value = String(lang || 'en').toLowerCase();
             if (value.startsWith('it')) return 'it';
             return 'en';
-        }
-
-        function showStatus(message, type = 'info') {
-            const el = document.getElementById('toast');
-            if (!el) return;
-            const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
-            el.textContent = `${icon} ${message}`;
-            const color = type === 'error' ? '#3b1b1b' : type === 'success' ? '#11321e' : '#132033';
-            const border = type === 'error' ? '#7a2c2c' : type === 'success' ? '#235932' : '#1f2c44';
-            el.style.background = color;
-            el.style.borderColor = border;
-            el.style.display = 'block';
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => {
-                el.style.display = 'none';
-            }, 2600);
-        }
-
-        function setBackendStatus(message = '', visible = false) {
-            if (!backendStatus) return;
-            backendStatus.textContent = message || '⚠️ Jellyfin non raggiungibile. Riprova o controlla JELLYFIN_URL.';
-            backendStatus.style.display = visible ? 'block' : 'none';
-        }
-
-        function applyTheme(theme) {
-            currentTheme = theme;
-            document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('theme', theme);
-            const btn = document.getElementById('btnTheme');
-            if (btn) {
-                btn.textContent = theme === 'light' ? '☀️' : '🌙';
-                btn.setAttribute('aria-label', theme === 'light' ? t('theme.dark') : t('theme.light'));
-            }
-        }
-
-        function initTheme() {
-            const saved = localStorage.getItem('theme');
-            if (saved === 'light' || saved === 'dark') {
-                applyTheme(saved);
-                return;
-            }
-            const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-            applyTheme(prefersLight ? 'light' : 'dark');
         }
 
         function escapeHtml(s) {
@@ -305,15 +282,55 @@
             return count === 1 ? t('label.user.one') : t('label.user.many');
         }
 
+        function showStatus(message, type = 'info') {
+            const el = document.getElementById('toast');
+            if (!el) return;
+            const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+            el.textContent = `${icon} ${message}`;
+            el.className = `toast toast-${type}`;
+            el.style.display = 'block';
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2600);
+        }
+
+        function setBackendStatus(message = '', visible = false) {
+            if (!backendStatus) return;
+            backendStatus.textContent = message || '⚠️ Jellyfin unreachable. Check JELLYFIN_URL / network and retry.';
+            backendStatus.style.display = visible ? 'block' : 'none';
+        }
+
+        function applyTheme(pref) {
+            currentTheme = (pref === 'light' || pref === 'dark') ? pref : 'system';
+            if (currentTheme === 'light' || currentTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', currentTheme);
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            localStorage.setItem(THEME_KEY, currentTheme);
+            updateThemeSwitcher();
+        }
+
+        function updateThemeSwitcher() {
+            document.querySelectorAll('[data-theme-value]').forEach(btn => {
+                btn.classList.toggle('is-active', btn.dataset.themeValue === currentTheme);
+            });
+        }
+
+        function updateLangSwitcher() {
+            document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
+                btn.classList.toggle('is-active', btn.dataset.lang === currentLang);
+            });
+        }
+
         function renderFooterMeta() {
             const nameEl = document.getElementById('footerProjectName');
             const descEl = document.getElementById('footerProjectDesc');
             const versionEl = document.getElementById('footerVersion');
             const repoEl = document.getElementById('footerRepoLink');
-            const versionLabel = t('footer.versionLabel') === 'footer.versionLabel' ? 'Version' : t('footer.versionLabel');
-            const repoLabel = t('footer.repoLabel') === 'footer.repoLabel' ? 'GitHub repository' : t('footer.repoLabel');
-            if (nameEl) nameEl.textContent = appMeta.name || t('title') || 'Trakt Multi-Scrobbler';
-            if (descEl) descEl.textContent = appMeta.description || t('footer.description') || 'Jellyfin to Trakt sync dashboard for multi-user setups.';
+            const versionLabel = t('footer.versionLabel');
+            const repoLabel = t('footer.repoLabel');
+            if (nameEl) nameEl.textContent = appMeta.name || 'Trakt Multi-Scrobbler';
+            if (descEl) descEl.textContent = t('footer.description') || appMeta.description || 'Jellyfin to Trakt sync dashboard.';
             if (versionEl) versionEl.textContent = `${versionLabel || 'Version'} ${appMeta.version || '—'}`;
             if (repoEl) {
                 repoEl.href = appMeta.repository || 'https://github.com/gioxx/trakt-multi-scrobbler';
@@ -327,14 +344,9 @@
                 const r = await fetch('/static/app_meta.json', { cache: 'no-cache' });
                 if (r.ok) {
                     const data = await r.json();
-                    appMeta = {
-                        ...appMeta,
-                        ...(data || {}),
-                    };
+                    appMeta = { ...appMeta, ...(data || {}) };
                 }
-            } catch (e) {
-                // Keep local defaults if meta file is unavailable.
-            }
+            } catch (e) {}
             renderFooterMeta();
         }
 
@@ -371,13 +383,11 @@
         function applyStaticText() {
             document.title = t('title');
             document.getElementById('brandTitle').textContent = t('title');
-            document.getElementById('brandSubtitle').textContent = t('subtitle');
             document.getElementById('btnRefresh').textContent = t('button.refresh');
-            document.getElementById('btnSync').textContent = t('button.sync');
-            const jellyfinLabel = t('button.jellyfinModalCount', { noun: userNoun(2) });
-            const traktLabel = t('button.traktModalCount', { noun: userNoun(2) });
-            document.getElementById('btnJellyfinModal').textContent = jellyfinLabel === 'button.jellyfinModalCount' ? '👤 Jellyfin users' : jellyfinLabel;
-            document.getElementById('btnTraktModal').textContent = traktLabel === 'button.traktModalCount' ? '👤 Trakt users' : traktLabel;
+            document.getElementById('btnSyncLabel').textContent = t('button.sync');
+            document.getElementById('btnJellyfinModal').textContent = '👤 ' + t('button.jellyfinModal').replace(/^👤\s*/, '');
+            document.getElementById('btnTraktModal').textContent = '👤 ' + t('button.traktModal').replace(/^👤\s*/, '');
+            document.getElementById('btnBackupLabel').textContent = t('button.backup');
             document.getElementById('jellyfinTitle').textContent = t('panel.jellyfinTitle');
             document.getElementById('jellyfinHelper').textContent = t('panel.jellyfinHelper');
             document.getElementById('traktTitle').textContent = t('panel.traktTitle');
@@ -407,17 +417,18 @@
             document.getElementById('deviceUrl').textContent = t('modal.openUrl');
             document.getElementById('orphansTitle').textContent = t('orphans.title');
             document.getElementById('orphansHelper').textContent = t('orphans.helper');
-
-            document.getElementById('langSelect').value = currentLang;
-            document.querySelectorAll('#langSelect option').forEach(opt => {
-                if (opt.value === 'en') opt.textContent = `${t('header.langIcon')} EN`;
-                if (opt.value === 'it') opt.textContent = `${t('header.langIcon')} IT`;
-            });
-            const btnTheme = document.getElementById('btnTheme');
-            if (btnTheme) {
-                btnTheme.setAttribute('aria-label', currentTheme === 'light' ? t('theme.dark') : t('theme.light'));
-                btnTheme.textContent = currentTheme === 'light' ? '☀️' : '🌙';
-            }
+            document.getElementById('backupTitle').textContent = t('backup.title');
+            document.getElementById('backupHelper').textContent = t('backup.helper');
+            document.getElementById('backupHint').textContent = t('backup.hint');
+            document.getElementById('backupDownloadLabel').textContent = t('button.backup');
+            document.getElementById('backupRestoreLabel').textContent = t('button.restore');
+            document.getElementById('btnCloseBackup').textContent = t('modal.close');
+            document.getElementById('cacheTitle').textContent = t('cache.title');
+            document.getElementById('cacheHelper').textContent = t('cache.helper');
+            document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
+            document.getElementById('cacheClearLabel').textContent = t('cache.clearRebuild');
+            updateLangSwitcher();
+            updateThemeSwitcher();
             if (bootLoadingText) bootLoadingText.textContent = t('loading') || 'Loading data…';
             renderFooterMeta();
         }
@@ -431,16 +442,15 @@
             }
             container.innerHTML = jellyfinUsers.map(u => {
                 const checked = u.enabled ? 'checked' : '';
-                const idLine = u.user_id ? `<div class="muted" style="font-size:12px;">${escapeHtml(u.user_id)}</div>` : '';
+                const idLine = u.user_id ? `<div class="muted ellipsis">${escapeHtml(u.user_id)}</div>` : '';
                 return `
-        <div class="card" style="align-items:center; padding:10px;">
-          <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+        <label class="card card-inline" style="cursor:pointer;">
+          <div class="meta" style="flex:1;">
             <div class="title">${escapeHtml(u.name || '')}</div>
             ${idLine}
           </div>
-          <input type="checkbox" data-user-id="${escapeHtml(u.user_id || '')}" ${checked} style="width:22px; height:22px; cursor:pointer;" />
-        </div>
-      `;
+          <input type="checkbox" data-user-id="${escapeHtml(u.user_id || '')}" ${checked} style="width:20px; height:20px; cursor:pointer;" />
+        </label>`;
             }).join('');
             container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
                 cb.addEventListener('change', async (e) => {
@@ -456,7 +466,7 @@
                         showStatus(t('status.jellyfinSaved'), 'success');
                     } catch (err) {
                         e.target.checked = !e.target.checked;
-                        alert(t('label.jellyfinToggleError'));
+                        showStatus(t('label.jellyfinToggleError'), 'error');
                     }
                 });
             });
@@ -471,7 +481,7 @@
                 renderJellyfinUsers();
                 setBackendStatus('', false);
             } catch (e) {
-                setBackendStatus('⚠️ Jellyfin non raggiungibile (users).', true);
+                setBackendStatus('', true);
                 throw e;
             }
         }
@@ -487,21 +497,22 @@
                 if (it.type === 'episode') {
                     const season = it.seasonIndex ? `S${String(it.seasonIndex).padStart(2, '0')}` : '';
                     const ep = it.episodeIndex ? `E${String(it.episodeIndex).padStart(2, '0')}` : '';
-                    const serie = it.seriesName || '';
                     subtitleParts.push([season, ep].filter(Boolean).join(''));
-                    subtitleParts.push(serie);
+                    subtitleParts.push(it.seriesName || '');
                 } else {
                     subtitleParts.push(it.year || '');
                 }
                 const dateStr = it.date ? new Date(it.date * 1000).toLocaleString() : '';
-                const thumb = it.thumb ? `<img src="${it.thumb}" alt="" style="width:70px; height:100px; object-fit:cover; border-radius:8px;">` : `<span class="muted">${t('label.noPoster')}</span>`;
-                return `<div class="card" style="padding:10px; gap:10px; align-items:center; width:240px;">
+                const thumb = it.thumb
+                    ? `<img src="${it.thumb}" alt="" class="thumb-sm">`
+                    : `<div class="thumb-sm" style="background:var(--poster); display:flex; align-items:center; justify-content:center;"><span class="muted">${t('label.noPoster')}</span></div>`;
+                return `<div class="card card-inline">
           ${thumb}
-          <div class="meta" style="padding:0; gap:4px;">
+          <div class="meta" style="flex:1; gap:3px;">
             <div class="title">${escapeHtml(it.title || it.seriesName || '')}</div>
             <div class="muted">${escapeHtml(subtitleParts.filter(Boolean).join(' · '))}</div>
-            <div class="muted" style="font-size:12px;">${escapeHtml(t('label.recentAt', { date: dateStr }))}</div>
-            <div class="muted" style="font-size:12px;">${escapeHtml(it.userName || '')}</div>
+            <div class="muted">${escapeHtml(t('label.recentAt', { date: dateStr }))}</div>
+            <div class="muted">${escapeHtml(it.userName || '')}</div>
           </div>
         </div>`;
             }).join('');
@@ -516,34 +527,17 @@
                 renderRecent();
                 setBackendStatus('', false);
             } catch (e) {
-                setBackendStatus('⚠️ Jellyfin non raggiungibile (recent).', true);
+                setBackendStatus('', true);
                 throw e;
             }
         }
 
-        function openJellyfinModal() {
-            document.getElementById('jellyfinModal').style.display = 'flex';
-        }
-
-        function closeJellyfinModal() {
-            document.getElementById('jellyfinModal').style.display = 'none';
-        }
-
-        function openTraktModal() {
-            document.getElementById('traktModal').style.display = 'flex';
-        }
-
-        function closeTraktModal() {
-            document.getElementById('traktModal').style.display = 'none';
-        }
-
-        function openBackupModal() {
-            document.getElementById('backupModal').style.display = 'flex';
-        }
-
-        function closeBackupModal() {
-            document.getElementById('backupModal').style.display = 'none';
-        }
+        const openJellyfinModal = () => document.getElementById('jellyfinModal').style.display = 'flex';
+        const closeJellyfinModal = () => document.getElementById('jellyfinModal').style.display = 'none';
+        const openTraktModal = () => document.getElementById('traktModal').style.display = 'flex';
+        const closeTraktModal = () => document.getElementById('traktModal').style.display = 'none';
+        const openBackupModal = () => document.getElementById('backupModal').style.display = 'flex';
+        const closeBackupModal = () => document.getElementById('backupModal').style.display = 'none';
 
         async function downloadBackup() {
             try {
@@ -569,10 +563,7 @@
             const form = new FormData();
             form.append('file', file);
             try {
-                const r = await fetch('/api/backup/restore', {
-                    method: 'POST',
-                    body: form
-                });
+                const r = await fetch('/api/backup/restore', { method: 'POST', body: form });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) throw new Error(data.error || 'restore_failed');
                 showStatus(t('status.restoreOk'), 'success');
@@ -600,59 +591,39 @@
                 const progressEl = document.getElementById('cacheProgress');
                 const etaEl = document.getElementById('cacheEta');
                 const progressBar = document.getElementById('cacheProgressBar');
-                if (btn && label) {
-                    const running = !!data.jobRunning;
-                    const processed = Number(data.jobProcessed || 0);
-                    const total = Number(data.jobTotal || 0);
-                    const percent = Math.max(0, Math.min(100, Number(data.jobPercent || 0)));
-                    const etaSeconds = Math.max(0, Number(data.jobEtaSeconds || 0));
-                    btn.disabled = running;
-                    if (btnClear) btnClear.disabled = running;
-                    label.textContent = running && data.jobPhase === 'refreshing' ? t('cache.refreshing') : t('cache.refresh');
-                    if (labelClear) labelClear.textContent = running && data.jobPhase === 'clearing' ? t('cache.clearing') : t('cache.clearRebuild');
-                    if (progressEl) {
-                        if (running) {
-                            if (total > 0) {
-                                progressEl.textContent = t('cache.progressRunning', {
-                                    processed,
-                                    total,
-                                    percent: Math.round(percent)
-                                });
-                            } else {
-                                progressEl.textContent = t('cache.progressPreparing', { processed });
-                            }
-                        } else if (processed > 0 || total > 0) {
-                            progressEl.textContent = t('cache.progressDone', { processed, total });
-                        } else {
-                            progressEl.textContent = t('cache.progressIdle');
-                        }
-                    }
-                    if (etaEl) {
-                        if (running && etaSeconds > 0) {
-                            etaEl.textContent = t('cache.eta', { value: formatDuration(etaSeconds) });
-                        } else if (running) {
-                            etaEl.textContent = t('cache.etaPreparing');
-                        } else {
-                            etaEl.textContent = t('cache.etaDone');
-                        }
-                    }
-                    if (progressBar) {
-                        if (running && total <= 0) {
-                            progressBar.removeAttribute('value');
-                        } else {
-                            progressBar.value = running ? percent : (processed > 0 ? 100 : 0);
-                        }
-                    }
-                    if (cacheStatusTimer) {
-                        clearTimeout(cacheStatusTimer);
-                        cacheStatusTimer = null;
-                    }
+                const running = !!data.jobRunning;
+                const processed = Number(data.jobProcessed || 0);
+                const total = Number(data.jobTotal || 0);
+                const percent = Math.max(0, Math.min(100, Number(data.jobPercent || 0)));
+                const etaSeconds = Math.max(0, Number(data.jobEtaSeconds || 0));
+                btn.disabled = running;
+                if (btnClear) btnClear.disabled = running;
+                label.textContent = running && data.jobPhase === 'refreshing' ? t('cache.refreshing') : t('cache.refresh');
+                if (labelClear) labelClear.textContent = running && data.jobPhase === 'clearing' ? t('cache.clearing') : t('cache.clearRebuild');
+                if (progressEl) {
                     if (running) {
-                        cacheStatusTimer = setTimeout(() => {
-                            loadCacheStatus();
-                        }, 1500);
+                        if (total > 0) {
+                            progressEl.textContent = t('cache.progressRunning', { processed, total, percent: Math.round(percent) });
+                        } else {
+                            progressEl.textContent = t('cache.progressPreparing', { processed });
+                        }
+                    } else if (processed > 0 || total > 0) {
+                        progressEl.textContent = t('cache.progressDone', { processed, total });
+                    } else {
+                        progressEl.textContent = t('cache.progressIdle');
                     }
                 }
+                if (etaEl) {
+                    if (running && etaSeconds > 0) etaEl.textContent = t('cache.eta', { value: formatDuration(etaSeconds) });
+                    else if (running) etaEl.textContent = t('cache.etaPreparing');
+                    else etaEl.textContent = t('cache.etaDone');
+                }
+                if (progressBar) {
+                    if (running && total <= 0) progressBar.removeAttribute('value');
+                    else progressBar.value = running ? percent : (processed > 0 ? 100 : 0);
+                }
+                if (cacheStatusTimer) { clearTimeout(cacheStatusTimer); cacheStatusTimer = null; }
+                if (running) cacheStatusTimer = setTimeout(loadCacheStatus, 1500);
             } catch (e) {
                 document.getElementById('cacheLast').textContent = t('cache.statusError');
                 document.getElementById('cacheFiles').textContent = '—';
@@ -679,7 +650,7 @@
                 const r = await fetch('/api/thumbs/refresh', { method: 'POST' });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) throw new Error(data.error || 'refresh_failed');
-                showStatus(data.started ? t('cache.refreshing') : t('cache.refreshing'), 'info');
+                showStatus(t('cache.refreshing'), 'info');
                 await loadCacheStatus();
             } catch (e) {
                 showStatus(t('cache.refreshError'), 'error');
@@ -691,14 +662,13 @@
                 const r = await fetch('/api/thumbs/clear', { method: 'POST' });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) throw new Error(data.error || 'clear_failed');
-                showStatus(data.started ? t('cache.clearing') : t('cache.clearing'), 'info');
+                showStatus(t('cache.clearing'), 'info');
                 await loadCacheStatus();
             } catch (e) {
                 showStatus(t('cache.clearError'), 'error');
             }
         }
 
-        // Content filters list rendering
         function renderTraktAccounts(configured) {
             const container = document.getElementById('traktAccounts');
             const notice = document.getElementById('traktNotice');
@@ -718,19 +688,18 @@
                 const badge = acc.enabled ? t('label.enabled') : t('label.disabled');
                 const checked = acc.enabled ? 'checked' : '';
                 return `
-        <div class="card" style="align-items:center; padding:10px;">
-          <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+        <div class="card card-inline">
+          <div class="meta" style="flex:1;">
             <div class="title">${escapeHtml(acc.username)}</div>
             <div class="muted">${t('label.lastSynced', {date: last})}</div>
             <div class="muted">${t('label.traktStatus', {status: badge})}</div>
           </div>
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
             <button class="pill" data-view="${escapeHtml(acc.username)}">${t('button.viewAccount')}</button>
-            <input type="checkbox" data-username="${escapeHtml(acc.username)}" ${checked} style="width:22px; height:22px; cursor:pointer;" />
-            <button class="pill" data-delete="${escapeHtml(acc.username)}" style="background:#241014;">${t('button.delete')}</button>
+            <input type="checkbox" data-username="${escapeHtml(acc.username)}" ${checked} style="width:20px; height:20px; cursor:pointer;" />
+            <button class="pill danger" data-delete="${escapeHtml(acc.username)}">${t('button.delete')}</button>
           </div>
-        </div>
-      `;
+        </div>`;
             }).join('');
 
             container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
@@ -750,9 +719,7 @@
                     } catch (err) {
                         e.target.checked = !e.target.checked;
                         showStatus(t('status.saveError'), 'error');
-                    } finally {
-                        cb.disabled = false;
-                    }
+                    } finally { cb.disabled = false; }
                 });
             });
 
@@ -777,9 +744,7 @@
             container.querySelectorAll('button[data-view]').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const username = btn.getAttribute('data-view');
-                    if (username) {
-                        window.location.href = `/trakt/${encodeURIComponent(username)}`;
-                    }
+                    if (username) window.location.href = `/trakt/${encodeURIComponent(username)}`;
                 });
             });
         }
@@ -789,35 +754,26 @@
             const data = await r.json();
             traktAccounts = data.accounts || [];
             renderTraktAccounts(!!data.configured);
-            // bulk select options
             const bulkSel = document.getElementById('bulkAccount');
             const prev = bulkSel.value;
             bulkSel.innerHTML = traktAccounts.map(a => `<option value="${escapeHtml(a.username)}">${escapeHtml(a.username)}</option>`).join('');
-            if (prev && traktAccounts.some(a => a.username === prev)) {
-                bulkSel.value = prev;
-            } else if (traktAccounts.length) {
-                bulkSel.value = traktAccounts[0].username;
-            }
-            // account filter options
+            if (prev && traktAccounts.some(a => a.username === prev)) bulkSel.value = prev;
+            else if (traktAccounts.length) bulkSel.value = traktAccounts[0].username;
             const accountSel = document.getElementById('accountFilter');
             const prevAcc = accountSel.value;
             accountSel.innerHTML = `<option value="">${escapeHtml(t('filter.accountAny'))}</option>` + traktAccounts.map(a => `<option value="${escapeHtml(a.username)}">${escapeHtml(a.username)}</option>`).join('');
-            if (prevAcc && traktAccounts.some(a => a.username === prevAcc)) {
-                accountSel.value = prevAcc;
-            } else {
-                accountSel.value = '';
-                accountFilter = '';
-            }
-            if (accountFilter && traktAccounts.some(a => a.username === accountFilter)) {
-                bulkSel.value = accountFilter;
-            }
+            if (prevAcc && traktAccounts.some(a => a.username === prevAcc)) accountSel.value = prevAcc;
+            else { accountSel.value = ''; accountFilter = ''; }
+            if (accountFilter && traktAccounts.some(a => a.username === accountFilter)) bulkSel.value = accountFilter;
         }
 
         function renderContentList() {
             const q = (document.getElementById('search').value || '').toLowerCase().trim();
             const list = document.getElementById('grid');
+            const countPill = document.getElementById('contentCount');
             if (!contentItems.length) {
                 list.innerHTML = `<div class="muted">${t('content.empty')}</div>`;
+                countPill.textContent = '0 / 0';
                 return;
             }
             const filtered = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
@@ -842,15 +798,18 @@
                     const title = (i.title || '').trim();
                     if (!title) return false;
                     const first = title[0].toUpperCase();
-                    if (alphaFilter === '#') {
-                        return first >= '0' && first <= '9';
-                    }
+                    if (alphaFilter === '#') return first >= '0' && first <= '9';
                     return first === alphaFilter;
                 });
+            countPill.textContent = `${filtered.length} / ${contentItems.length}`;
+            document.getElementById('filterAll').classList.toggle('active', contentFilter === 'all');
+            document.getElementById('filterMovies').classList.toggle('active', contentFilter === 'movies');
+            document.getElementById('filterShows').classList.toggle('active', contentFilter === 'shows');
+            document.getElementById('filterUnassigned').classList.toggle('active', contentFilter === 'unassigned');
             list.innerHTML = filtered.map(it => {
                 const accountsHtml = (it.accounts || []).map(acc => {
                     const checked = acc.ruleEnabled ? 'checked' : '';
-                    return `<label style="display:flex; align-items:center; gap:6px;">
+                    return `<label style="display:inline-flex; align-items:center; gap:6px;">
                       <input type="checkbox" data-username="${escapeHtml(acc.username)}" data-provider-key="${escapeHtml(it.providerKey || '')}" data-group-key="${escapeHtml(it.groupKey || '')}" data-type="${escapeHtml(it.type || '')}" ${checked}/>
                       <span class="muted">${escapeHtml(acc.username)}${acc.accountEnabled ? '' : ' (off)'}</span>
                     </label>`;
@@ -862,7 +821,7 @@
                   <div class="meta">
                     <div class="title">${escapeHtml(it.title || '')}</div>
                     <div class="sub">${escapeHtml(subtitle)}</div>
-                    <div style="display:flex; gap:12px; flex-wrap:wrap;">${accountsHtml}</div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">${accountsHtml}</div>
                   </div>
                 </div>`;
             }).join('');
@@ -885,9 +844,7 @@
                     } catch (err) {
                         e.target.checked = !e.target.checked;
                         showStatus(t('status.saveError'), 'error');
-                    } finally {
-                        cb.disabled = false;
-                    }
+                    } finally { cb.disabled = false; }
                 });
             });
         }
@@ -902,7 +859,7 @@
                 renderContentList();
                 setBackendStatus('', false);
             } catch (e) {
-                setBackendStatus('⚠️ Jellyfin/Trakt non raggiungibili (items).', true);
+                setBackendStatus('', true);
                 throw e;
             }
         }
@@ -925,11 +882,13 @@
             sec.style.display = 'block';
             countEl.textContent = String(orphans.length);
             list.innerHTML = orphans.map(it => {
-                const poster = it.thumb ? `<img src="${it.thumb}" alt="" style="width:70px; height:100px; object-fit:cover; border-radius:8px;">` : '';
+                const poster = it.thumb
+                    ? `<img src="${it.thumb}" alt="" class="thumb-sm">`
+                    : `<div class="thumb-sm" style="background:var(--poster); display:flex; align-items:center; justify-content:center;"><span class="muted">${t('label.noPoster')}</span></div>`;
                 const subtitle = [it.type, it.year].filter(Boolean).join(' · ');
-                return `<div class="card" style="padding:8px; gap:8px; align-items:center; width:230px;">
-                  ${poster || ''}
-                  <div class="meta" style="padding:0; gap:4px;">
+                return `<div class="card card-inline" style="width:240px;">
+                  ${poster}
+                  <div class="meta" style="flex:1;">
                     <div class="title">${escapeHtml(it.title || '')}</div>
                     <div class="muted">${escapeHtml(subtitle)}</div>
                   </div>
@@ -939,10 +898,7 @@
 
         async function bulkApply(enable) {
             const account = document.getElementById('bulkAccount').value;
-            if (!account) {
-                alert(t('bulk.noAccount'));
-                return;
-            }
+            if (!account) { showStatus(t('bulk.noAccount'), 'error'); return; }
             const q = (document.getElementById('search').value || '').toLowerCase().trim();
             const targets = (q ? contentItems.filter(i => (i.title || '').toLowerCase().includes(q)) : contentItems)
                 .filter(i => contentFilter === 'all' ? true : (i.type === (contentFilter === 'movies' ? 'movie' : 'show')))
@@ -951,9 +907,7 @@
                     const title = (i.title || '').trim();
                     if (!title) return false;
                     const first = title[0].toUpperCase();
-                    if (alphaFilter === '#') {
-                        return first >= '0' && first <= '9';
-                    }
+                    if (alphaFilter === '#') return first >= '0' && first <= '9';
                     return first === alphaFilter;
                 })
                 .filter(i => {
@@ -962,7 +916,6 @@
                     return accs.some(a => a.username === account);
                 });
             if (!targets.length) return;
-            // Optimistic update locally
             targets.forEach(it => {
                 it.accounts = (it.accounts || []).map(acc => acc.username === account ? { ...acc, ruleEnabled: enable } : acc);
             });
@@ -988,21 +941,14 @@
             }
         }
 
-        function openDeviceModal() {
-            document.getElementById('deviceModal').style.display = 'flex';
-        }
-
+        const openDeviceModal = () => document.getElementById('deviceModal').style.display = 'flex';
         function closeDeviceModal() {
             document.getElementById('deviceModal').style.display = 'none';
             document.getElementById('deviceStatus').textContent = '';
             document.getElementById('deviceCode').textContent = '—';
             document.getElementById('deviceUrl').href = '#';
             currentDeviceCode = '';
-            lastPollError = false;
-            if (devicePollTimer) {
-                clearInterval(devicePollTimer);
-                devicePollTimer = null;
-            }
+            if (devicePollTimer) { clearInterval(devicePollTimer); devicePollTimer = null; }
         }
 
         async function startDeviceFlow() {
@@ -1014,26 +960,22 @@
                 if (!data.ok) throw new Error(data.error || 'failed');
                 currentDeviceCode = data.device_code;
                 deviceExpiresAt = Date.now() + (data.expires_in || 600) * 1000;
-                devicePollIntervalSec = Math.max(data.interval || 5, 10); // wait a bit longer than spec to avoid 400 while user authorizes
-                lastPollError = false;
+                devicePollIntervalSec = Math.max(data.interval || 5, 10);
                 document.getElementById('deviceCode').textContent = data.user_code || '—';
                 document.getElementById('deviceUrl').href = data.verification_url || '#';
                 document.getElementById('deviceStatus').textContent = t('modal.waiting', { seconds: devicePollIntervalSec });
                 openDeviceModal();
                 devicePollTimer = setInterval(pollDeviceFlow, devicePollIntervalSec * 1000);
             } catch (e) {
-                alert(t('modal.startError'));
-            } finally {
-                btn.disabled = false;
-            }
+                showStatus(t('modal.startError'), 'error');
+            } finally { btn.disabled = false; }
         }
 
         async function pollDeviceFlow() {
             if (!currentDeviceCode) return;
             if (Date.now() > deviceExpiresAt) {
                 document.getElementById('deviceStatus').textContent = t('modal.expired');
-                clearInterval(devicePollTimer);
-                devicePollTimer = null;
+                clearInterval(devicePollTimer); devicePollTimer = null;
                 return;
             }
             try {
@@ -1045,13 +987,11 @@
                 const data = await r.json();
                 if (data.status === 'pending') {
                     document.getElementById('deviceStatus').textContent = t('modal.waiting', { seconds: devicePollIntervalSec });
-                    lastPollError = false;
                     return;
                 }
                 if (data.status === 'approved') {
                     document.getElementById('deviceStatus').textContent = t('modal.approved', { user: data.username || '' });
-                    clearInterval(devicePollTimer);
-                    devicePollTimer = null;
+                    clearInterval(devicePollTimer); devicePollTimer = null;
                     await loadTraktAccounts();
                     await loadContentItems();
                     setTimeout(closeDeviceModal, 1500);
@@ -1059,23 +999,20 @@
                 }
                 if (data.status === 'rejected') {
                     document.getElementById('deviceStatus').textContent = t('modal.expired');
-                    clearInterval(devicePollTimer);
-                    devicePollTimer = null;
+                    clearInterval(devicePollTimer); devicePollTimer = null;
                     return;
                 }
-                // Unknown/error: keep polling but surface message.
                 document.getElementById('deviceStatus').textContent = t('modal.error');
-                lastPollError = true;
             } catch (e) {
                 document.getElementById('deviceStatus').textContent = t('modal.error');
-                lastPollError = true;
             }
         }
 
         async function triggerSync() {
             const btn = document.getElementById('btnSync');
+            const label = document.getElementById('btnSyncLabel');
             btn.disabled = true;
-            btn.textContent = t('button.syncing');
+            label.textContent = t('button.syncing');
             try {
                 const r = await fetch('/api/trakt/sync', { method: 'POST' });
                 const data = await r.json();
@@ -1096,7 +1033,7 @@
                 showStatus(t('status.syncError'), 'error');
             } finally {
                 btn.disabled = false;
-                btn.textContent = t('button.sync');
+                label.textContent = t('button.sync');
                 await loadTraktAccounts();
             }
         }
@@ -1107,28 +1044,44 @@
                 if (!r.ok) throw new Error('summary');
                 const s = await r.json();
                 const date = s.lastRefresh ? new Date(s.lastRefresh * 1000).toLocaleString() : '—';
-                const trakt = s.traktConfigured ? t('label.traktOn') : t('label.traktOff');
-                const movies = s.movies ?? '0';
-                const shows = s.shows ?? '0';
-                document.getElementById('summary').textContent = `${t('label.libraryCounts', { movies, shows })} · ${t('header.summaryIcon')} ${t('summary.updated', { date })}`;
+                const traktLabel = s.traktConfigured ? t('label.traktOn') : t('label.traktOff');
+                const movies = s.movies ?? 0;
+                const shows = s.shows ?? 0;
                 const selectedUsers = s.selectedUsers ?? s.users ?? 0;
                 const totalUsers = s.totalUsers ?? s.users ?? 0;
-                const jellyfinLabel = t('button.jellyfinModalCount', { noun: userNoun(totalUsers) });
-                const jellyfinText = jellyfinLabel === 'button.jellyfinModalCount' ? '👤 Jellyfin users' : jellyfinLabel;
-                document.getElementById('btnJellyfinModal').textContent = `${jellyfinText} · ${selectedUsers}/${totalUsers}`;
-                const traktAccounts = s.traktAccounts ?? [];
-                const traktTotal = traktAccounts.length || (s.traktTotal ?? 0) || 0;
-                const traktEnabled = traktAccounts.filter(a => a && a.enabled).length;
-                const traktLabel = t('button.traktModalCount', { noun: userNoun(traktTotal) });
-                const traktText = traktLabel === 'button.traktModalCount' ? '👤 Trakt users' : traktLabel;
-                document.getElementById('btnTraktModal').textContent = `${traktText} · ${traktEnabled}/${traktTotal} · ${trakt}`;
+                const traktAccountsArr = s.traktAccounts ?? [];
+                const traktTotal = traktAccountsArr.length || (s.traktTotal ?? 0) || 0;
+                const traktEnabled = traktAccountsArr.filter(a => a && a.enabled).length;
+
+                // Summary stats pill (central)
+                const icon = t('header.summaryIcon');
+                const libraryLine = t('label.libraryCounts', { movies, shows });
+                const usersLine = `👤 ${selectedUsers}/${totalUsers} ${userNoun(totalUsers)}`;
+                const traktLine = `🎯 ${traktEnabled}/${traktTotal} Trakt · ${traktLabel}`;
+                const dateLine = t('summary.updated', { date });
+                const parts = [libraryLine, usersLine, traktLine];
+                const statsLine = parts.map((p, i) => {
+                    const content = i === 0 ? `${icon} ${p}` : p;
+                    const sep = i > 0 ? '<span class="summary-sep" aria-hidden="true"> · </span>' : '';
+                    return `${sep}<span class="summary-item">${escapeHtml(content)}</span>`;
+                }).join('');
+                document.getElementById('summary').innerHTML =
+                    `<span class="summary-stats-line">${statsLine}</span>` +
+                    `<span class="summary-sep-mid" aria-hidden="true"> · </span>` +
+                    `<span class="summary-date-line">${escapeHtml(dateLine)}</span>`;
+
+                // Header pill counters
+                document.getElementById('btnJellyfinModal').textContent = `👤 Jellyfin · ${selectedUsers}/${totalUsers}`;
+                document.getElementById('btnTraktModal').textContent = `👤 Trakt · ${traktEnabled}/${traktTotal}`;
                 setBackendStatus('', false);
             } catch (e) {
-                setBackendStatus('⚠️ Jellyfin non raggiungibile (summary).', true);
+                setBackendStatus('', true);
+                document.getElementById('summary').innerHTML = `<span class="summary-stats-line"><span class="summary-item">ℹ️ —</span></span>`;
                 throw e;
             }
         }
 
+        // Event wiring
         document.getElementById('btnRefresh').addEventListener('click', async () => {
             const btn = document.getElementById('btnRefresh');
             btn.disabled = true;
@@ -1141,9 +1094,7 @@
                 showStatus(t('status.refreshed'), 'success');
             } catch (e) {
                 showStatus(t('status.refreshError'), 'error');
-            } finally {
-                btn.disabled = false;
-            }
+            } finally { btn.disabled = false; }
         });
 
         document.getElementById('btnSync').addEventListener('click', triggerSync);
@@ -1160,88 +1111,78 @@
             accountFilter = e.target.value || '';
             if (accountFilter) {
                 const bulkSel = document.getElementById('bulkAccount');
-                if ([...bulkSel.options].some(o => o.value === accountFilter)) {
-                    bulkSel.value = accountFilter;
-                }
+                if ([...bulkSel.options].some(o => o.value === accountFilter)) bulkSel.value = accountFilter;
             }
             renderContentList();
         });
         document.getElementById('btnJellyfinModal').addEventListener('click', () => { loadJellyfinUsers(); openJellyfinModal(); });
         document.getElementById('btnTraktModal').addEventListener('click', () => { loadTraktAccounts(); openTraktModal(); });
-        document.getElementById('btnTheme').addEventListener('click', () => {
-            applyTheme(currentTheme === 'light' ? 'dark' : 'light');
-        });
         document.getElementById('btnBackup').addEventListener('click', openBackupModal);
         document.getElementById('btnBackupDownload').addEventListener('click', downloadBackup);
-        document.getElementById('btnBackupRestore').addEventListener('click', () => {
-            document.getElementById('backupFile').click();
-        });
+        document.getElementById('btnBackupRestore').addEventListener('click', () => document.getElementById('backupFile').click());
         document.getElementById('btnCacheRefresh').addEventListener('click', refreshCacheThumbs);
         document.getElementById('btnCacheClear').addEventListener('click', clearAndRebuildCacheThumbs);
         document.getElementById('backupFile').addEventListener('change', async (e) => {
             const file = e.target.files && e.target.files[0];
-            if (file) {
-                await restoreBackup(file);
-                e.target.value = '';
-            }
+            if (file) { await restoreBackup(file); e.target.value = ''; }
         });
         document.getElementById('btnCloseJellyfin').addEventListener('click', closeJellyfinModal);
         document.getElementById('btnCloseTrakt').addEventListener('click', closeTraktModal);
         document.getElementById('btnCloseBackup').addEventListener('click', closeBackupModal);
-        document.getElementById('langSelect').addEventListener('change', async (e) => {
-            await loadLang(e.target.value);
-            await loadSummary();
-            await loadJellyfinUsers();
-            await loadRecent();
-            await loadTraktAccounts();
-            await loadContentItems();
-            document.getElementById('btnBackup').title = t('button.backup');
-            document.getElementById('btnBackup').textContent = `💾 ${t('button.backup')}`;
-            document.getElementById('btnBackupDownload').title = t('button.backup');
-            document.getElementById('btnBackupRestore').title = t('button.restore');
-            document.getElementById('backupTitle').textContent = t('backup.title');
-            document.getElementById('backupHelper').textContent = t('backup.helper');
-            document.getElementById('backupHint').textContent = t('backup.hint');
-            document.getElementById('backupDownloadLabel').textContent = t('button.backup');
-            document.getElementById('backupRestoreLabel').textContent = t('button.restore');
-            document.getElementById('cacheTitle').textContent = t('cache.title');
-            document.getElementById('cacheHelper').textContent = t('cache.helper');
-            document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
-            document.getElementById('cacheClearLabel').textContent = t('cache.clearRebuild');
-            await loadCacheStatus();
-        });
         document.getElementById('btnCloseDevice').addEventListener('click', closeDeviceModal);
         document.getElementById('btnCancelDevice').addEventListener('click', closeDeviceModal);
-        document.getElementById('deviceModal').addEventListener('click', (e) => { if (e.target === document.getElementById('deviceModal')) closeDeviceModal(); });
-        document.getElementById('jellyfinModal').addEventListener('click', (e) => { if (e.target === document.getElementById('jellyfinModal')) closeJellyfinModal(); });
-        document.getElementById('traktModal').addEventListener('click', (e) => { if (e.target === document.getElementById('traktModal')) closeTraktModal(); });
-        document.getElementById('backupModal').addEventListener('click', (e) => { if (e.target === document.getElementById('backupModal')) closeBackupModal(); });
+        document.getElementById('deviceModal').addEventListener('click', (e) => { if (e.target.id === 'deviceModal') closeDeviceModal(); });
+        document.getElementById('jellyfinModal').addEventListener('click', (e) => { if (e.target.id === 'jellyfinModal') closeJellyfinModal(); });
+        document.getElementById('traktModal').addEventListener('click', (e) => { if (e.target.id === 'traktModal') closeTraktModal(); });
+        document.getElementById('backupModal').addEventListener('click', (e) => { if (e.target.id === 'backupModal') closeBackupModal(); });
         document.getElementById('filterAll').addEventListener('click', () => { contentFilter = 'all'; renderContentList(); });
         document.getElementById('filterMovies').addEventListener('click', () => { contentFilter = 'movies'; renderContentList(); });
         document.getElementById('filterShows').addEventListener('click', () => { contentFilter = 'shows'; renderContentList(); });
         document.getElementById('filterUnassigned').addEventListener('click', () => { contentFilter = 'unassigned'; renderContentList(); });
 
+        // Lang switcher
+        document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await loadLang(btn.dataset.lang);
+                await Promise.allSettled([loadSummary(), loadJellyfinUsers(), loadRecent(), loadTraktAccounts(), loadContentItems(), loadCacheStatus()]);
+            });
+        });
+
+        // Theme switcher
+        document.querySelectorAll('[data-theme-value]').forEach(btn => {
+            btn.addEventListener('click', () => applyTheme(btn.dataset.themeValue));
+        });
+
+        // Hamburger
+        const btnHamburger = document.getElementById('btnHamburger');
+        const headerActions = document.getElementById('headerActions');
+        if (btnHamburger && headerActions) {
+            btnHamburger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = headerActions.classList.toggle('is-open');
+                btnHamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            });
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('header')) {
+                    headerActions.classList.remove('is-open');
+                    btnHamburger.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        // Scroll to top
+        (() => {
+            const btn = document.getElementById('scrollTopBtn');
+            if (!btn) return;
+            window.addEventListener('scroll', () => btn.classList.toggle('visible', window.scrollY > 300), { passive: true });
+            btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        })();
+
         (async () => {
             const storedLang = normalizeLang(localStorage.getItem('lang') || 'en');
-            initTheme();
             try {
-                await Promise.all([
-                    loadAppMeta(),
-                    loadLang(storedLang),
-                ]);
-                document.getElementById('btnBackup').title = t('button.backup');
-                document.getElementById('btnBackup').textContent = `💾 ${t('button.backup')}`;
-                document.getElementById('btnBackupDownload').title = t('button.backup');
-                document.getElementById('btnBackupRestore').title = t('button.restore');
-                document.getElementById('backupTitle').textContent = t('backup.title');
-                document.getElementById('backupHelper').textContent = t('backup.helper');
-                document.getElementById('backupHint').textContent = t('backup.hint');
-                document.getElementById('backupDownloadLabel').textContent = t('button.backup');
-                document.getElementById('backupRestoreLabel').textContent = t('button.restore');
-                document.getElementById('cacheTitle').textContent = t('cache.title');
-                document.getElementById('cacheHelper').textContent = t('cache.helper');
-                document.getElementById('cacheRefreshLabel').textContent = t('cache.refresh');
-                document.getElementById('cacheClearLabel').textContent = t('cache.clearRebuild');
+                await Promise.all([loadAppMeta(), loadLang(storedLang)]);
+                applyTheme(currentTheme);
             } catch (e) {
                 showStatus('Initial load failed, retry with Refresh.', 'error');
             } finally {
