@@ -1113,9 +1113,11 @@
                     `<span class="summary-sep-mid" aria-hidden="true"> · </span>` +
                     `<span class="summary-date-line">${escapeHtml(dateLine)}</span>`;
 
-                // Header pill counters
-                document.getElementById('btnJellyfinModal').textContent = `👤 Jellyfin · ${selectedUsers}/${totalUsers}`;
-                document.getElementById('btnTraktModal').textContent = `👤 Trakt · ${traktEnabled}/${traktTotal}`;
+                // Header pill counters — keep the localized base label, just append the count.
+                const jBase = (t('button.jellyfinModal') || '👤 Jellyfin').replace(/^👤\s*/, '');
+                const tBase = (t('button.traktModal') || '👤 Trakt').replace(/^👤\s*/, '');
+                document.getElementById('btnJellyfinModal').textContent = `👤 ${jBase} · ${selectedUsers}/${totalUsers}`;
+                document.getElementById('btnTraktModal').textContent = `👤 ${tBase} · ${traktEnabled}/${traktTotal}`;
                 setBackendStatus('', false);
             } catch (e) {
                 setBackendStatus('', true);
