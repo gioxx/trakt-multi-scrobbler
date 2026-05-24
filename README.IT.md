@@ -6,6 +6,13 @@
 
 Dashboard web per scegliere quali utenti Jellyfin scrobblano verso quali account Trakt. Supporta più utenti per entrambi i servizi, regole per serie/film, tema chiaro/scuro e gestione account Trakt via device flow.
 
+[![](https://img.shields.io/github/issues/gioxx/trakt-multi-scrobbler.svg)](https://github.com/gioxx/trakt-multi-scrobbler/issues)
+[![](https://img.shields.io/github/issues-pr-raw/gioxx/trakt-multi-scrobbler.svg)](https://github.com/gioxx/trakt-multi-scrobbler/pulls)
+[![MIT License](https://img.shields.io/github/license/gioxx/trakt-multi-scrobbler)](https://github.com/gioxx/trakt-multi-scrobbler/blob/main/LICENSE)
+[![](https://img.shields.io/badge/GHCR-available-blue?logo=docker)](https://github.com/users/gioxx/packages/container/package/trakt-multi-scrobbler)
+[![](https://img.shields.io/docker/pulls/gfsolone/trakt-multi-scrobbler.svg)](https://hub.docker.com/r/gfsolone/trakt-multi-scrobbler)
+[![](https://img.shields.io/docker/image-size/gfsolone/trakt-multi-scrobbler/latest.svg)](https://hub.docker.com/r/gfsolone/trakt-multi-scrobbler)
+
 ## Funzionalità principali
 - Lettura libreria Jellyfin (film/episodi) con ID TMDB/IMDB/TVDB e locandine.
 - Scelta degli utenti Jellyfin che fungono da “fonte” (persistita).

@@ -6,6 +6,13 @@
 
 Web dashboard to map Jellyfin watches to one or more Trakt accounts. Multi-user on both sides, per-title rules, light/dark themes, and Trakt account management via device flow.
 
+[![](https://img.shields.io/github/issues/gioxx/trakt-multi-scrobbler.svg)](https://github.com/gioxx/trakt-multi-scrobbler/issues)
+[![](https://img.shields.io/github/issues-pr-raw/gioxx/trakt-multi-scrobbler.svg)](https://github.com/gioxx/trakt-multi-scrobbler/pulls)
+[![MIT License](https://img.shields.io/github/license/gioxx/trakt-multi-scrobbler)](https://github.com/gioxx/trakt-multi-scrobbler/blob/main/LICENSE)
+[![](https://img.shields.io/badge/GHCR-available-blue?logo=docker)](https://github.com/users/gioxx/packages/container/package/trakt-multi-scrobbler)
+[![](https://img.shields.io/docker/pulls/gfsolone/trakt-multi-scrobbler.svg)](https://hub.docker.com/r/gfsolone/trakt-multi-scrobbler)
+[![](https://img.shields.io/docker/image-size/gfsolone/trakt-multi-scrobbler/latest.svg)](https://hub.docker.com/r/gfsolone/trakt-multi-scrobbler)
+
 ## Features
 - Reads Jellyfin library (movies/episodes) with TMDB/IMDB/TVDB IDs and posters.
 - Choose which Jellyfin users are tracked as the “source” (persisted).
