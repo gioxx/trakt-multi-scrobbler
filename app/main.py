@@ -703,9 +703,17 @@ async def _startup() -> None:
     # Quick reachability probe (non-blocking) to surface Jellyfin URL issues early.
     async def probe_jellyfin():
         test_url = f"{JELLYFIN_URL}/System/Info"
+        authorization = (
+            "MediaBrowser , "
+            'Client="trakt-multi-scrobbler", '
+            'Device="script", '
+            'DeviceId="script", '
+            'Version="1.0.0", '
+            f'Token="{JELLYFIN_APIKEY}"'
+        )
         try:
             async with httpx.AsyncClient(timeout=JELLYFIN_TIMEOUT) as client:
-                r = await client.get(test_url, headers={"X-Emby-Token": JELLYFIN_APIKEY})
+                r = await client.get(test_url, headers={"Authorization": authorization})
                 r.raise_for_status()
                 logger.info("Jellyfin probe OK: %s", test_url)
         except Exception as exc:
@@ -795,7 +803,15 @@ async def image_proxy(
 
         base_url = JELLYFIN_URL.rstrip("/")
         url = f"{base_url}/Items/{item_id}/Images/Primary"
-        headers = {"X-Emby-Token": JELLYFIN_APIKEY}
+        authorization = (
+            "MediaBrowser , "
+            'Client="trakt-multi-scrobbler", '
+            'Device="script", '
+            'DeviceId="script", '
+            'Version="1.0.0", '
+            f'Token="{JELLYFIN_APIKEY}"'
+        )
+        headers = {"Authorization": authorization}
 
         params: Dict[str, Any] = {}
         if THUMB_MAX_HEIGHT > 0:
