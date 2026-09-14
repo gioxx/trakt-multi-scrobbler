@@ -12,11 +12,18 @@ services:
       - TRAKT_STATE_PATH=/data/trakt_accounts.json
       - WATCH_THRESHOLD=0.95
       - REFRESH_MINUTES=30
+      - PROXY_IMAGES=true # route Jellyfin poster/thumbnail requests through this app instead of linking Jellyfin directly (fixes HTTPS/CDN issues and required for auth on Jellyfin 12+)
     volumes:
       - data:/data
     restart: unless-stopped
     cpus: 0.5
     mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8089/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   data:
